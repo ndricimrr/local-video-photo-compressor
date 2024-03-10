@@ -1,6 +1,8 @@
 import os
 import subprocess
 import sys
+import time
+from temp import get_cpu_temp
 
 def get_video_bitrate(file_path):
     try:
@@ -26,6 +28,19 @@ def compress_video(input_file, output_file, target_bitrate):
         input("Failed press enter to exit")
         # sys.exit(1)  # Exit the script with an error code
 
+def pause_conversion():
+    print("Pausing conversion...")
+    while True:
+        temp = get_cpu_temp()
+        print(f"Current CPU temp: {temp} ...")
+        if temp is not None and temp < 65:
+            break
+        time.sleep(5)
+
+def resume_conversion():
+    print("Resuming conversion...")
+    time.sleep(60)  # Wait for 1 minute after reaching 65°C
+
 def compress_videos_in_folder(input_folder, output_folder, compression_ratio=0.3):
     if not os.path.exists(input_folder):
         print(f"Input folder '{input_folder}' not found.")
@@ -40,6 +55,12 @@ def compress_videos_in_folder(input_folder, output_folder, compression_ratio=0.3
         for file in files:
             if file.lower().endswith(('.mkv', '.mp4', '.avi', '.mov')):
                 print(f"File to convert now : '{file}' .")
+
+                temp = get_cpu_temp()
+                if temp is not None and temp >= 90:
+                    print("CPU temperature is too high. Pausing conversion...")
+                    pause_conversion()
+
                 input_file = os.path.join(root, file)
                 original_filename, extension = os.path.splitext(file)
                 output_file = os.path.join(output_folder, f"{original_filename}_NEW_CONVERTED{extension}")

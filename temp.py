@@ -11,12 +11,12 @@ def get_cpu_temp():
         print("Error:", e)
     return None
 
-if __name__ == "__main__":
-    temperature = get_cpu_temp()
-    if temperature is not None:
-        print(f"CPU Temperature: {temperature} °C")
-    else:
-        print("Unable to retrieve CPU temperature.")
+# if __name__ == "__main__":
+#     temperature = get_cpu_temp()
+#     if temperature is not None:
+#         print(f"CPU Temperature: {temperature} °C")
+#     else:
+#         print("Unable to retrieve CPU temperature.")
 
 
 # import psutil
