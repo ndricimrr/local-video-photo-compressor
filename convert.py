@@ -18,9 +18,9 @@ def get_video_bitrate(file_path):
         print(f"Error calculating bitrate for {file_path}: {e}")
         return None
 
-def compress_video(input_file, output_file, target_bitrate, temperature_threshold):
+def compress_video(input_file, output_file, target_bitrate, temperature_threshold, preset='veryslow'):
     try:
-        cmd = ['ffmpeg', '-y', '-i', input_file, '-c:v', 'libx264', '-b:v', f'{target_bitrate}k', '-c:a', 'copy', output_file]
+        cmd = ['ffmpeg', '-y', '-i', input_file, '-c:v', 'libx264', '-preset', preset, '-b:v', f'{target_bitrate}k', '-c:a', 'copy', output_file]
         process = subprocess.Popen(cmd)
         while process.poll() is None:
             temp = get_cpu_temp()
@@ -31,11 +31,12 @@ def compress_video(input_file, output_file, target_bitrate, temperature_threshol
                 if os.path.exists(output_file):  # Check if the output file exists
                     os.remove(output_file)  # Remove corrupted output file
                 pause_conversion()
-                process = subprocess.Popen(cmd)  # Resume the process
+                process = subprocess.Popen(cmd)  # Resume the process with slower preset
         print(f"Compressed {input_file} to {output_file}")
     except subprocess.CalledProcessError as e:
         print(f"Failed to compress {input_file}: {e.stderr}")
         input("Failed press enter to exit")
+        # sys.exit(1)  # Exit the script with an error code
 
 def compress_videos_in_folder(input_folder, output_folder, compression_ratio=0.3, temperature_threshold=97):
     if not os.path.exists(input_folder):
