@@ -18,30 +18,26 @@ def get_video_bitrate(file_path):
         print(f"Error calculating bitrate for {file_path}: {e}")
         return None
 
-def compress_video(input_file, output_file, target_bitrate):
+def compress_video(input_file, output_file, target_bitrate, temperature_threshold):
     try:
-        cmd = ['ffmpeg', '-i', input_file, '-c:v', 'libx264', '-b:v', f'{target_bitrate}k', '-c:a', 'copy', output_file]
-        subprocess.run(cmd, capture_output=True, check=True)
+        cmd = ['ffmpeg', '-y', '-i', input_file, '-c:v', 'libx264', '-b:v', f'{target_bitrate}k', '-c:a', 'copy', output_file]
+        process = subprocess.Popen(cmd)
+        while process.poll() is None:
+            temp = get_cpu_temp()
+            if temp is not None and temp >= temperature_threshold:
+                print("CPU temperature is too high. Pausing conversion...")
+                process.terminate()
+                process.wait()  # Wait for the process to completely terminate
+                if os.path.exists(output_file):  # Check if the output file exists
+                    os.remove(output_file)  # Remove corrupted output file
+                pause_conversion()
+                process = subprocess.Popen(cmd)  # Resume the process
         print(f"Compressed {input_file} to {output_file}")
     except subprocess.CalledProcessError as e:
         print(f"Failed to compress {input_file}: {e.stderr}")
         input("Failed press enter to exit")
-        # sys.exit(1)  # Exit the script with an error code
 
-def pause_conversion():
-    print("Pausing conversion...")
-    while True:
-        temp = get_cpu_temp()
-        print(f"Current CPU temp: {temp} ...")
-        if temp is not None and temp < 65:
-            break
-        time.sleep(5)
-
-def resume_conversion():
-    print("Resuming conversion...")
-    time.sleep(60)  # Wait for 1 minute after reaching 65°C
-
-def compress_videos_in_folder(input_folder, output_folder, compression_ratio=0.3):
+def compress_videos_in_folder(input_folder, output_folder, compression_ratio=0.3, temperature_threshold=97):
     if not os.path.exists(input_folder):
         print(f"Input folder '{input_folder}' not found.")
         return
@@ -56,11 +52,6 @@ def compress_videos_in_folder(input_folder, output_folder, compression_ratio=0.3
             if file.lower().endswith(('.mkv', '.mp4', '.avi', '.mov')):
                 print(f"File to convert now : '{file}' .")
 
-                temp = get_cpu_temp()
-                if temp is not None and temp >= 90:
-                    print("CPU temperature is too high. Pausing conversion...")
-                    pause_conversion()
-
                 input_file = os.path.join(root, file)
                 original_filename, extension = os.path.splitext(file)
                 output_file = os.path.join(output_folder, f"{original_filename}_NEW_CONVERTED{extension}")
@@ -73,12 +64,21 @@ def compress_videos_in_folder(input_folder, output_folder, compression_ratio=0.3
                     if target_bitrate > 20000:  # Limit to 20 Mbps (20000 kbps)
                         print(f"  >>>ERROR: Found bitrate > 20k = '{target_bitrate}. Changing to 10000")
                         target_bitrate = 10000
-                    compress_video(input_file, output_file, target_bitrate)
+                    compress_video(input_file, output_file, target_bitrate, temperature_threshold)
     print(f"END ____ .")
 
+def pause_conversion():
+    print("Pausing conversion...")
+    while True:
+        temp = get_cpu_temp()
+        print(f"Current CPU temp: {temp} ...")
+        if temp is not None and temp <= 75:
+            break
+        time.sleep(5)
+
 # Example usage:
-input_folder = 'photos'
-output_folder = 'photos'
+input_folder = r'C:\Users\ndric\Desktop\recover\photos'
+output_folder = r'C:\Users\ndric\Desktop\recover\photos'
 try:
     compress_videos_in_folder(input_folder, output_folder)
 except Exception as e:
