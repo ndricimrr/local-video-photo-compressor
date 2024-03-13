@@ -18,7 +18,8 @@ def get_video_bitrate(file_path):
         print(f"Error calculating bitrate for {file_path}: {e}")
         return None
 
-def compress_video(input_file, output_file, target_bitrate, temperature_threshold, preset='veryslow'):
+# compress video and pause proess if CPU overheats. 
+def compress_video(input_file, output_file, target_bitrate, temperature_threshold, preset='fast'):
     try:
         cmd = ['ffmpeg', '-y', '-i', input_file, '-c:v', 'libx264', '-preset', preset, '-b:v', f'{target_bitrate}k', '-c:a', 'copy', output_file]
         process = subprocess.Popen(cmd)
@@ -38,7 +39,7 @@ def compress_video(input_file, output_file, target_bitrate, temperature_threshol
         input("Failed press enter to exit")
         # sys.exit(1)  # Exit the script with an error code
 
-def compress_videos_in_folder(input_folder, output_folder, compression_ratio=0.3, temperature_threshold=97):
+def compress_videos_in_folder(input_folder, output_folder, compression_ratio=0.3, temperature_threshold=98):
     if not os.path.exists(input_folder):
         print(f"Input folder '{input_folder}' not found.")
         return
@@ -78,7 +79,7 @@ def pause_conversion():
         time.sleep(5)
 
 # Example usage:
-input_folder = r'C:\Users\ndric\Desktop\recover\photos'
+input_folder = r'C:\Users\ndric\Desktop\recover\photos\argert_bilardo'
 output_folder = r'C:\Users\ndric\Desktop\recover\photos'
 try:
     compress_videos_in_folder(input_folder, output_folder)
