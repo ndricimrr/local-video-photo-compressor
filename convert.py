@@ -36,8 +36,6 @@ def compress_video(input_file, output_file, target_bitrate, temperature_threshol
         print(f"Compressed {input_file} to {output_file}")
     except subprocess.CalledProcessError as e:
         print(f"Failed to compress {input_file}: {e.stderr}")
-        input("Failed press enter to exit")
-        # sys.exit(1)  # Exit the script with an error code
 
 def compress_videos_in_folder(input_folder, output_folder, compression_ratio=0.3, temperature_threshold=98):
     if not os.path.exists(input_folder):
@@ -86,4 +84,3 @@ try:
 except Exception as e:
     print(f"An error occurred: {e}")
 
-input("Press Enter to exit...")
