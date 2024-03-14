@@ -1,6 +1,5 @@
 import os
 import subprocess
-import sys
 import time
 from temp import get_cpu_temp
 
