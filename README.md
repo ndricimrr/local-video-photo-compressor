@@ -24,3 +24,13 @@ It then converts the videos it found to lower file size in place. You only drag 
 At the end instead of 12 GB of cat videos, you end up with 100 MB maybe, sparring quite a lot of space for you.
 
 You saved your memories and also saved some money, thats the goal.
+
+# How to Run
+
+```
+python convert.py
+```
+
+# Requirements
+
+- Currently runs on Windows only
