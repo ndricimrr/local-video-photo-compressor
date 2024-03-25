@@ -34,3 +34,6 @@ python convert.py
 # Requirements
 
 - Currently runs on Windows only
+- Make sure to have the latest version of python
+- Install wmi :
+  `pip install WMI`
