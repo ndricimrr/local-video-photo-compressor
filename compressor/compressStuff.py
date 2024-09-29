@@ -2,30 +2,69 @@ import os
 import json
 import sys
 import subprocess
-from PIL import Image
-import shutil  # Import shutil to use for copying files
+import shutil  # For copying files
+import signal  # For handling Ctrl+C signal
+from PIL import Image, UnidentifiedImageError
 
 # Constants for output folder name and progress file
 OUTPUT_FOLDER_NAME = "output"
 PROGRESS_FILE_NAME = "saved-progress.json"
 
+# Global variables for tracking stats
+processed_images_count = 0
+processed_videos_count = 0
+skipped_videos_count = 0
+unsupported_files_count = 0
+failed_files = []  # To track files that fail
+unsupported_files = []  # To track unsupported files
+processed_files = set()
+
+total_original_images_size = 0
+total_final_images_size = 0
+total_original_videos_size = 0
+total_final_videos_size = 0
+
+def format_size(size_in_bytes):
+    """Returns size in MB or GB depending on the size."""
+    if size_in_bytes >= 1024 * 1024 * 1024:
+        return f"{size_in_bytes / (1024 * 1024 * 1024):.2f} GB"
+    else:
+        return f"{size_in_bytes / (1024 * 1024):.2f} MB"
+
 def save_progress(processed_files):
-    """Saves the processed files to the progress file."""
+    """Saves the processed files and size data to the progress file."""
+    data = {
+        'processed_files': list(processed_files),
+        'total_original_images_size': total_original_images_size,
+        'total_final_images_size': total_final_images_size,
+        'total_original_videos_size': total_original_videos_size,
+        'total_final_videos_size': total_final_videos_size
+    }
     with open(PROGRESS_FILE_NAME, 'w') as f:
-        json.dump({'processed_files': list(processed_files)}, f)
+        json.dump(data, f)
 
 def load_progress():
-    """Loads the processed files from the progress file."""
+    """Loads the processed files and size data from the progress file."""
+    global total_original_images_size, total_final_images_size, total_original_videos_size, total_final_videos_size
     if os.path.exists(PROGRESS_FILE_NAME):
         with open(PROGRESS_FILE_NAME, 'r') as f:
             data = json.load(f)
+            total_original_images_size = data.get('total_original_images_size', 0)
+            total_final_images_size = data.get('total_final_images_size', 0)
+            total_original_videos_size = data.get('total_original_videos_size', 0)
+            total_final_videos_size = data.get('total_final_videos_size', 0)
             return set(data.get('processed_files', []))
     return set()
 
 def compress_image(input_file, output_file):
     """Compresses an image and saves it to the output file."""
-    img = Image.open(input_file)
-    img.save(output_file, optimize=True, quality=85)
+    try:
+        img = Image.open(input_file)
+        img.save(output_file, optimize=True, quality=58)
+    except UnidentifiedImageError:
+        print(f"\033[31mFailed to process image (corrupt): {input_file}\033[0m")
+        failed_files.append(input_file)  # Save the failed file to the list
+        shutil.copy2(input_file, output_file)  # Copy the corrupt file
 
 def compress_video(input_file, output_file, crf):
     """Compresses a video and saves it to the output file."""
@@ -39,15 +78,11 @@ def compress_video(input_file, output_file, crf):
     ]
     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # Suppress FFmpeg output
 
-def process_files(folder, processed_files):
+def process_files(folder):
     """Recursively processes files in the given folder."""
-    total_original_images_size = 0
-    total_final_images_size = 0
-    total_original_videos_size = 0
-    total_final_videos_size = 0
-    processed_images_count = 0
-    processed_videos_count = 0
-    
+    global processed_images_count, processed_videos_count, skipped_videos_count, unsupported_files_count
+    global total_original_images_size, total_final_images_size, total_original_videos_size, total_final_videos_size
+
     # Define the output folder as a sibling directory
     output_folder = os.path.join(os.path.dirname(folder), OUTPUT_FOLDER_NAME)
     os.makedirs(output_folder, exist_ok=True)  # Create the output folder if it doesn't exist
@@ -64,7 +99,6 @@ def process_files(folder, processed_files):
 
             # Skip files that have already been processed
             if input_file in processed_files:
-                # print(f"Skipping already processed file: {input_file}")
                 continue
             
             # Process based on file type
@@ -76,7 +110,7 @@ def process_files(folder, processed_files):
                 final_size = os.path.getsize(output_file)
                 total_final_images_size += final_size
                 processed_images_count += 1
-                print(f"Processed {input_file}: {original_size / (1024 * 1024):.2f} MB -> {final_size / (1024 * 1024):.2f} MB")
+                print(f"Processed {input_file}: {format_size(original_size)} -> {format_size(final_size)}")
 
             elif filename.lower().endswith(('.mp4', '.mkv', '.mov')):
                 input_size = os.path.getsize(input_file)
@@ -87,8 +121,8 @@ def process_files(folder, processed_files):
                 if input_size_mb < 50:
                     print(f"Copying video (too small): {input_file}")
                     # Copy the file instead of compressing
-                    shutil.copy2(input_file, output_file)  # Use shutil to copy
-                    final_size = os.path.getsize(output_file)
+                    shutil.copy2(input_file, output_file)
+                    skipped_videos_count += 1
                 else:
                     if 50 <= input_size_mb < 150:
                         crf = 36
@@ -109,18 +143,61 @@ def process_files(folder, processed_files):
                     total_final_videos_size += final_size
                     processed_videos_count += 1
                     percentage_decrease = 100 * (original_size - final_size) / original_size if original_size > 0 else 0
-                    print(f"Processed {input_file}: {original_size / (1024 * 1024):.2f} MB -> {final_size / (1024 * 1024):.2f} MB (Decrease: {percentage_decrease:.2f}%)")
+                    print(f"Processed {input_file}: {format_size(original_size)} -> {format_size(final_size)} (Decrease: {percentage_decrease:.2f}%)")
                 processed_videos_count += 1  # Count copied video as processed
+
+            else:
+                # Unsupported file type, copy it directly and log it
+                print(f"\033[33mCopying unsupported file: {input_file}\033[0m")
+                shutil.copy2(input_file, output_file)
+                unsupported_files.append(input_file)
+                unsupported_files_count += 1
 
             # Save progress after each file
             processed_files.add(input_file)
-            save_progress(processed_files)  # Update progress file with all processed files
+            save_progress(processed_files)
 
-    print(f"\nProcessed {processed_images_count} images with total original size: {total_original_images_size / (1024 * 1024):.2f} MB and total final size: {total_final_images_size / (1024 * 1024):.2f} MB.")
-    print(f"Processed {processed_videos_count} videos with total original size: {total_original_videos_size / (1024 * 1024):.2f} MB and total final size: {total_final_videos_size / (1024 * 1024):.2f} MB.")
+    print(f"\nProcessed {processed_images_count} images with total original size: {format_size(total_original_images_size)} and total final size: {format_size(total_final_images_size)}.")
+    print(f"Processed {processed_videos_count} videos with total original size: {format_size(total_original_videos_size)} and total final size: {format_size(total_final_videos_size)}.")
+
+# Signal handler for Ctrl+C
+def signal_handler(sig, frame):
+    print("\n\n\033[33mGracefully exiting on Ctrl+C...\033[0m")
+    print_summary()
+    sys.exit(0)
+
+def calculate_percentage_decrease(original_size, final_size):
+    """Calculates the percentage decrease in file size."""
+    if original_size > 0:
+        return 100 * (original_size - final_size) / original_size
+    return 0
+
+def print_summary():
+    """Prints a summary of processed files with percentage decrease."""
+    global processed_images_count, processed_videos_count, skipped_videos_count, unsupported_files_count
+
+    # Calculate percentage decrease for images and videos
+    image_decrease_percentage = calculate_percentage_decrease(total_original_images_size, total_final_images_size)
+    video_decrease_percentage = calculate_percentage_decrease(total_original_videos_size, total_final_videos_size)
+
+    print("\n\033[34mSummary\033[0m")
+    print(f"Processed {processed_images_count} images with total size: {format_size(total_original_images_size)} -> {format_size(total_final_images_size)}. ({image_decrease_percentage:.2f}% file size decrease)")
+    print(f"Processed {processed_videos_count} videos with total size: {format_size(total_original_videos_size)} -> {format_size(total_final_videos_size)}. ({video_decrease_percentage:.2f}% file size decrease)")
+    print(f"Skipped {skipped_videos_count} videos (too small to compress).")
+
+    if failed_files:
+        print(f"\033[31mFailed to process {len(failed_files)} files (copied instead):\033[0m")
+        for f in failed_files:
+            print(f" - {f}")
+    
+    if unsupported_files:
+        print(f"\033[33mCopied {unsupported_files_count} unsupported files:\033[0m")
+        for f in unsupported_files:
+            print(f" - {f}")
 
 def main():
     """Main function to execute the script."""
+    signal.signal(signal.SIGINT, signal_handler)  # Handle Ctrl+C
     if len(sys.argv) < 2:
         print("Usage: python compressStuff.py <folder_path> [-R]")
         return
@@ -131,10 +208,11 @@ def main():
         return
 
     # Load processed files if resuming
+    global processed_files
     processed_files = load_progress()
 
     # Start processing files
-    process_files(folder, processed_files)
+    process_files(folder)
 
 if __name__ == "__main__":
     main()
