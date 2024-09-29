@@ -70,7 +70,7 @@ def compress_image(input_file, output_file):
     """Compresses an image and saves it to the output file."""
     try:
         img = Image.open(input_file)
-        img.save(output_file, optimize=True, quality=58)
+        img.save(output_file, optimize=True, quality=20)
     except UnidentifiedImageError:
         print(f"\033[31mFailed to process image (corrupt): {input_file}\033[0m")
         failed_files.append(input_file)  # Save the failed file to the list
@@ -83,7 +83,7 @@ def compress_video(input_file, output_file, crf):
         '-i', input_file,
         '-c:v', 'libx264',
         '-crf', str(crf),
-        '-preset', 'ultrafast',
+        '-preset', 'fast',
         output_file
     ]
     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # Suppress FFmpeg output
@@ -122,7 +122,7 @@ def process_files(folder):
                 final_size = os.path.getsize(output_file)
                 total_final_images_size += final_size
                 processed_images_count += 1
-                print(f"Processed {input_file}: {format_size(original_size)} -> {format_size(final_size)}")
+                print(f"Processed {input_file}: {format_size(original_size)} -> {format_size(final_size)} , (Decrease: {calculate_percentage_decrease(original_size, final_size):.2f} %)")
 
             elif filename.lower().endswith(('.mp4', '.mkv', '.mov')):
                 input_size = os.path.getsize(input_file)
@@ -130,32 +130,31 @@ def process_files(folder):
                 crf = 47  # Default CRF value
 
                 # Determine CRF based on file size
-                if input_size_mb < 1:
-                    print(f"Copying video (too small (1MB)): {input_file}")
+                if input_size_mb < 10:
+                    print(f"Copying video (too small ({input_size_mb} MB)): {input_file}")
                     # Copy the file instead of compressing
                     shutil.copy2(input_file, output_file)
                     skipped_videos_count += 1
                     total_skipped_videos_size += input_size  # Track skipped video size
                 else:
-                    if 1 <= input_size_mb < 10:
-                        crf = 34
                     if 10 <= input_size_mb < 20:
-                        crf = 35
-                    if 20 <= input_size_mb < 50:
-                        crf = 35
-                    if 50 <= input_size_mb < 150:
-                        crf = 36
+                        crf = 32
+                    elif 20 <= input_size_mb < 50:
+                        crf = 33
+                    elif 50 <= input_size_mb < 150:
+                        crf = 34
                     elif 150 <= input_size_mb < 300:
-                        crf = 37
+                        crf = 35
                     elif 300 <= input_size_mb < 500:
-                        crf = 39
+                        crf = 37
                     elif 500 <= input_size_mb < 1024:
-                        crf = 40
+                        crf = 38
                     else:
-                        crf = 41
+                        crf = 39
 
-                    print(f"\033[33mCompressing video (CRF {crf}): {input_file}\033[0m")
                     original_size = os.path.getsize(input_file)
+                    print(f"\033[33mCompressing video (Size= {format_size(original_size)} ) (CRF {crf}): {input_file}\033[0m")
+                   
                     total_original_videos_size += original_size
                     compress_video(input_file, output_file, crf)
                     final_size = os.path.getsize(output_file)
