@@ -1,8 +1,9 @@
 import os
 import json
 import sys
-import ffmpeg
+import subprocess
 from PIL import Image
+import shutil  # Import shutil to use for copying files
 
 # Constants for output folder name and progress file
 OUTPUT_FOLDER_NAME = "output"
@@ -28,7 +29,15 @@ def compress_image(input_file, output_file):
 
 def compress_video(input_file, output_file, crf):
     """Compresses a video and saves it to the output file."""
-    ffmpeg.input(input_file).output(output_file, **{'crf': crf}).run(overwrite_output=True)
+    cmd = [
+        'ffmpeg',
+        '-i', input_file,
+        '-c:v', 'libx264',
+        '-crf', str(crf),
+        '-preset', 'medium',
+        output_file
+    ]
+    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # Suppress FFmpeg output
 
 def process_files(folder, processed_files, resume):
     """Recursively processes files in the given folder."""
@@ -42,11 +51,16 @@ def process_files(folder, processed_files, resume):
     # Load the last processed file to resume only if resuming
     cutoff_file = load_progress() if resume else None
     
+    # Define the output folder as a sibling directory
+    output_folder = os.path.join(os.path.dirname(folder), OUTPUT_FOLDER_NAME)
+    os.makedirs(output_folder, exist_ok=True)  # Create the output folder if it doesn't exist
+    print(f"Output folder: {output_folder}")  # Print the output folder location
+    
     for dirpath, _, filenames in os.walk(folder):
         for filename in filenames:
             input_file = os.path.join(dirpath, filename)
             relative_path = os.path.relpath(input_file, folder)
-            output_file = os.path.join(folder, OUTPUT_FOLDER_NAME, relative_path)
+            output_file = os.path.join(output_folder, relative_path)  # Update to use the sibling output folder
 
             # Create the output directory if it doesn't exist
             os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -79,8 +93,10 @@ def process_files(folder, processed_files, resume):
 
                 # Determine CRF based on file size
                 if input_size_mb < 50:
-                    print(f"Skipping video (too small): {input_file}")
-                    output_file = input_file  # Just copy the file
+                    print(f"Copying video (too small): {input_file}")
+                    # Copy the file instead of compressing
+                    shutil.copy2(input_file, output_file)  # Use shutil to copy
+                    final_size = os.path.getsize(output_file)
                 elif 50 <= input_size_mb < 150:
                     crf = 40
                 elif 150 <= input_size_mb < 300:
@@ -92,15 +108,18 @@ def process_files(folder, processed_files, resume):
                 else:
                     crf = 47
                 
-                print(f"\033[33mCompressing video (CRF {crf}): {input_file}\033[0m")
-                original_size = os.path.getsize(input_file)
-                total_original_videos_size += original_size
-                compress_video(input_file, output_file, crf)
-                final_size = os.path.getsize(output_file)
-                total_final_videos_size += final_size
-                processed_videos_count += 1
-                percentage_decrease = 100 * (original_size - final_size) / original_size if original_size > 0 else 0
-                print(f"Processed {input_file}: {original_size / (1024 * 1024):.2f} MB -> {final_size / (1024 * 1024):.2f} MB (Decrease: {percentage_decrease:.2f}%)")
+                if input_size_mb >= 50:  # Only compress if file is not too small
+                    print(f"\033[33mCompressing video (CRF {crf}): {input_file}\033[0m")
+                    original_size = os.path.getsize(input_file)
+                    total_original_videos_size += original_size
+                    compress_video(input_file, output_file, crf)
+                    final_size = os.path.getsize(output_file)
+                    total_final_videos_size += final_size
+                    processed_videos_count += 1
+                    percentage_decrease = 100 * (original_size - final_size) / original_size if original_size > 0 else 0
+                    print(f"Processed {input_file}: {original_size / (1024 * 1024):.2f} MB -> {final_size / (1024 * 1024):.2f} MB (Decrease: {percentage_decrease:.2f}%)")
+                else:
+                    processed_videos_count += 1  # Count copied video as processed
 
             # Save progress after each file
             processed_files.add(input_file)
