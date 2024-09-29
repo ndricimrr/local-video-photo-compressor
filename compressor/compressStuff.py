@@ -9,18 +9,18 @@ import shutil  # Import shutil to use for copying files
 OUTPUT_FOLDER_NAME = "output"
 PROGRESS_FILE_NAME = "saved-progress.json"
 
-def save_progress(cutoff_file):
-    """Saves the last processed file path to the progress file."""
+def save_progress(processed_files):
+    """Saves the processed files to the progress file."""
     with open(PROGRESS_FILE_NAME, 'w') as f:
-        json.dump({'cutoff_file': cutoff_file}, f)
+        json.dump({'processed_files': list(processed_files)}, f)
 
 def load_progress():
-    """Loads the last processed file path from the progress file."""
+    """Loads the processed files from the progress file."""
     if os.path.exists(PROGRESS_FILE_NAME):
         with open(PROGRESS_FILE_NAME, 'r') as f:
             data = json.load(f)
-            return data.get('cutoff_file')
-    return None
+            return set(data.get('processed_files', []))
+    return set()
 
 def compress_image(input_file, output_file):
     """Compresses an image and saves it to the output file."""
@@ -34,12 +34,12 @@ def compress_video(input_file, output_file, crf):
         '-i', input_file,
         '-c:v', 'libx264',
         '-crf', str(crf),
-        '-preset', 'medium',
+        '-preset', 'ultrafast',
         output_file
     ]
     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # Suppress FFmpeg output
 
-def process_files(folder, processed_files, resume):
+def process_files(folder, processed_files):
     """Recursively processes files in the given folder."""
     total_original_images_size = 0
     total_final_images_size = 0
@@ -47,9 +47,6 @@ def process_files(folder, processed_files, resume):
     total_final_videos_size = 0
     processed_images_count = 0
     processed_videos_count = 0
-    
-    # Load the last processed file to resume only if resuming
-    cutoff_file = load_progress() if resume else None
     
     # Define the output folder as a sibling directory
     output_folder = os.path.join(os.path.dirname(folder), OUTPUT_FOLDER_NAME)
@@ -67,14 +64,9 @@ def process_files(folder, processed_files, resume):
 
             # Skip files that have already been processed
             if input_file in processed_files:
+                # print(f"Skipping already processed file: {input_file}")
                 continue
-
-            # Check if we need to resume processing
-            if resume and cutoff_file and input_file != cutoff_file:
-                continue
-            else:
-                cutoff_file = input_file  # Update the cutoff to the current file
-
+            
             # Process based on file type
             if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
                 print(f"\033[32mCompressing image: {input_file}\033[0m")
@@ -97,18 +89,18 @@ def process_files(folder, processed_files, resume):
                     # Copy the file instead of compressing
                     shutil.copy2(input_file, output_file)  # Use shutil to copy
                     final_size = os.path.getsize(output_file)
-                elif 50 <= input_size_mb < 150:
-                    crf = 40
-                elif 150 <= input_size_mb < 300:
-                    crf = 41
-                elif 300 <= input_size_mb < 500:
-                    crf = 42
-                elif 500 <= input_size_mb < 1024:
-                    crf = 45
                 else:
-                    crf = 47
-                
-                if input_size_mb >= 50:  # Only compress if file is not too small
+                    if 50 <= input_size_mb < 150:
+                        crf = 36
+                    elif 150 <= input_size_mb < 300:
+                        crf = 37
+                    elif 300 <= input_size_mb < 500:
+                        crf = 39
+                    elif 500 <= input_size_mb < 1024:
+                        crf = 40
+                    else:
+                        crf = 41
+
                     print(f"\033[33mCompressing video (CRF {crf}): {input_file}\033[0m")
                     original_size = os.path.getsize(input_file)
                     total_original_videos_size += original_size
@@ -118,12 +110,11 @@ def process_files(folder, processed_files, resume):
                     processed_videos_count += 1
                     percentage_decrease = 100 * (original_size - final_size) / original_size if original_size > 0 else 0
                     print(f"Processed {input_file}: {original_size / (1024 * 1024):.2f} MB -> {final_size / (1024 * 1024):.2f} MB (Decrease: {percentage_decrease:.2f}%)")
-                else:
-                    processed_videos_count += 1  # Count copied video as processed
+                processed_videos_count += 1  # Count copied video as processed
 
             # Save progress after each file
             processed_files.add(input_file)
-            save_progress(cutoff_file)
+            save_progress(processed_files)  # Update progress file with all processed files
 
     print(f"\nProcessed {processed_images_count} images with total original size: {total_original_images_size / (1024 * 1024):.2f} MB and total final size: {total_final_images_size / (1024 * 1024):.2f} MB.")
     print(f"Processed {processed_videos_count} videos with total original size: {total_original_videos_size / (1024 * 1024):.2f} MB and total final size: {total_final_videos_size / (1024 * 1024):.2f} MB.")
@@ -139,20 +130,11 @@ def main():
         print(f"Error: The folder {folder} does not exist.")
         return
 
-    # Use a set to track processed files
-    processed_files = set()
-
-    # Check if resuming from progress file
-    resume = "-R" in sys.argv
-    if resume:
-        cutoff_file = load_progress()
-        if cutoff_file:
-            print(f"Resuming from: {cutoff_file}")
-        else:
-            print("No progress file found. Starting fresh.")
+    # Load processed files if resuming
+    processed_files = load_progress()
 
     # Start processing files
-    process_files(folder, processed_files, resume)
+    process_files(folder, processed_files)
 
 if __name__ == "__main__":
     main()
