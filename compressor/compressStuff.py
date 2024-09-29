@@ -19,10 +19,13 @@ failed_files = []  # To track files that fail
 unsupported_files = []  # To track unsupported files
 processed_files = set()
 
+# Sizes tracking
 total_original_images_size = 0
 total_final_images_size = 0
 total_original_videos_size = 0
 total_final_videos_size = 0
+total_unsupported_files_size = 0  # New: Track size of unsupported files
+total_skipped_videos_size = 0  # New: Track size of skipped videos
 
 def format_size(size_in_bytes):
     """Returns size in MB or GB depending on the size."""
@@ -38,14 +41,19 @@ def save_progress(processed_files):
         'total_original_images_size': total_original_images_size,
         'total_final_images_size': total_final_images_size,
         'total_original_videos_size': total_original_videos_size,
-        'total_final_videos_size': total_final_videos_size
+        'total_final_videos_size': total_final_videos_size,
+        'total_unsupported_files_size': total_unsupported_files_size,  # Save unsupported files size
+        'total_skipped_videos_size': total_skipped_videos_size  # Save skipped videos size
     }
     with open(PROGRESS_FILE_NAME, 'w') as f:
         json.dump(data, f)
 
 def load_progress():
     """Loads the processed files and size data from the progress file."""
-    global total_original_images_size, total_final_images_size, total_original_videos_size, total_final_videos_size
+    global total_original_images_size, total_final_images_size
+    global total_original_videos_size, total_final_videos_size
+    global total_unsupported_files_size, total_skipped_videos_size
+
     if os.path.exists(PROGRESS_FILE_NAME):
         with open(PROGRESS_FILE_NAME, 'r') as f:
             data = json.load(f)
@@ -53,6 +61,8 @@ def load_progress():
             total_final_images_size = data.get('total_final_images_size', 0)
             total_original_videos_size = data.get('total_original_videos_size', 0)
             total_final_videos_size = data.get('total_final_videos_size', 0)
+            total_unsupported_files_size = data.get('total_unsupported_files_size', 0)  # Load unsupported size
+            total_skipped_videos_size = data.get('total_skipped_videos_size', 0)  # Load skipped videos size
             return set(data.get('processed_files', []))
     return set()
 
@@ -81,7 +91,9 @@ def compress_video(input_file, output_file, crf):
 def process_files(folder):
     """Recursively processes files in the given folder."""
     global processed_images_count, processed_videos_count, skipped_videos_count, unsupported_files_count
-    global total_original_images_size, total_final_images_size, total_original_videos_size, total_final_videos_size
+    global total_original_images_size, total_final_images_size
+    global total_original_videos_size, total_final_videos_size
+    global total_unsupported_files_size, total_skipped_videos_size
 
     # Define the output folder as a sibling directory
     output_folder = os.path.join(os.path.dirname(folder), OUTPUT_FOLDER_NAME)
@@ -118,12 +130,19 @@ def process_files(folder):
                 crf = 47  # Default CRF value
 
                 # Determine CRF based on file size
-                if input_size_mb < 50:
-                    print(f"Copying video (too small): {input_file}")
+                if input_size_mb < 1:
+                    print(f"Copying video (too small (1MB)): {input_file}")
                     # Copy the file instead of compressing
                     shutil.copy2(input_file, output_file)
                     skipped_videos_count += 1
+                    total_skipped_videos_size += input_size  # Track skipped video size
                 else:
+                    if 1 <= input_size_mb < 10:
+                        crf = 34
+                    if 10 <= input_size_mb < 20:
+                        crf = 35
+                    if 20 <= input_size_mb < 50:
+                        crf = 35
                     if 50 <= input_size_mb < 150:
                         crf = 36
                     elif 150 <= input_size_mb < 300:
@@ -149,6 +168,8 @@ def process_files(folder):
             else:
                 # Unsupported file type, copy it directly and log it
                 print(f"\033[33mCopying unsupported file: {input_file}\033[0m")
+                file_size = os.path.getsize(input_file)
+                total_unsupported_files_size += file_size  # Track unsupported file size
                 shutil.copy2(input_file, output_file)
                 unsupported_files.append(input_file)
                 unsupported_files_count += 1
@@ -183,7 +204,8 @@ def print_summary():
     print("\n\033[34mSummary\033[0m")
     print(f"Processed {processed_images_count} images with total size: {format_size(total_original_images_size)} -> {format_size(total_final_images_size)}. ({image_decrease_percentage:.2f}% file size decrease)")
     print(f"Processed {processed_videos_count} videos with total size: {format_size(total_original_videos_size)} -> {format_size(total_final_videos_size)}. ({video_decrease_percentage:.2f}% file size decrease)")
-    print(f"Skipped {skipped_videos_count} videos (too small to compress).")
+    print(f"Skipped {skipped_videos_count} videos (too small to compress). (Total Size: {format_size(total_skipped_videos_size)})")  # Skipped videos size
+    print(f"Copied {unsupported_files_count} unsupported files. (Total Size: {format_size(total_unsupported_files_size)})")  # Unsupported files size
 
     if failed_files:
         print(f"\033[31mFailed to process {len(failed_files)} files (copied instead):\033[0m")
