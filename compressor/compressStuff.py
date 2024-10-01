@@ -4,7 +4,8 @@ import sys
 import subprocess
 import shutil  # For copying files
 import signal  # For handling Ctrl+C signal
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, UnidentifiedImageError, ExifTags
+import piexif
 
 # Constants for output folder name and progress file
 OUTPUT_FOLDER_NAME = "output"
@@ -66,15 +67,167 @@ def load_progress():
             return set(data.get('processed_files', []))
     return set()
 
-def compress_image(input_file, output_file):
-    """Compresses an image and saves it to the output file."""
+def load_image(input_file):
+    """Loads an image from the input file and returns the image object."""
     try:
-        img = Image.open(input_file)
-        img.save(output_file, optimize=True, quality=20)
+        print("Loading image is fine")
+        return Image.open(input_file)
     except UnidentifiedImageError:
-        print(f"\033[31mFailed to process image (corrupt): {input_file}\033[0m")
-        failed_files.append(input_file)  # Save the failed file to the list
-        shutil.copy2(input_file, output_file)  # Copy the corrupt file
+        print(f"\033[31mFailed to process image (corrupt) (Copying anyway...): {input_file}\033[0m")
+        failed_files.append(input_file)
+        return None
+
+def correct_orientation(img):
+    """Corrects the image orientation based on EXIF data."""
+    try:
+        exif_data = img.getexif()  # Get EXIF data if available
+        if not exif_data:
+            return img  # No EXIF, no orientation correction
+
+        # Find the orientation tag in the EXIF data
+        # for orientation in ExifTags.TAGS.keys():
+        #     if ExifTags.TAGS[orientation] == 'Orientation':
+        #         break
+
+        # Find the orientation tag in the EXIF data
+        orientation_tag = None
+        for tag in ExifTags.TAGS.keys():
+            if ExifTags.TAGS[tag] == 'Orientation':
+                orientation_tag = tag
+                break
+        
+        if orientation_tag and orientation_tag in exif_data:
+            orientation_value = exif_data[orientation_tag]
+            # Apply rotation based on the orientation value
+            if orientation_value == 3:
+                img = img.rotate(180, expand=True)
+            elif orientation_value == 6:
+                img = img.rotate(270, expand=True)
+            elif orientation_value == 8:
+                img = img.rotate(90, expand=True)
+
+
+        # if orientation in exif_data:
+        #     print("Orientation inside")
+        #     orientation_value = exif_data[orientation]
+        #     if orientation_value == 3:
+        #         print("Orientation 3")
+        #         img = img.rotate(180, expand=True)
+        #     elif orientation_value == 6:
+        #         print("Orientation 6")
+        #         img = img.rotate(270, expand=True)
+        #     elif orientation_value == 8:
+        #         print("Orientation 8")
+        #         img = img.rotate(90, expand=True)
+        print("Orientation is fine")
+        return img
+    except Exception as e:
+        print(f"\033[31mError correcting orientation: {e}\033[0m")
+        return img  # Return the unmodified image if any error occurs
+
+def filter_exif_data(exif_data, essential_tags=None):
+    """Filters EXIF data to retain only the essential tags."""
+    if essential_tags is None:
+        essential_tags = [ 
+            271, # Manufacturer of the camera used to capture the image.
+            272, # Model of the camera used to capture the image.
+            274, # Orientation of the image
+            36867, # Date and time when the photo was originally taken.
+            40962, # Image width in pixels.
+            40963, # Image height in pixels.
+            # 34853, # GPS data
+        ]
+
+    if not exif_data:
+        print("No exif found")
+        return None
+
+    try:
+        exif_dict = piexif.load(exif_data)  # Load EXIF data into a dictionary
+        # Filter the EXIF dictionary to retain only essential tags
+        filtered_exif_dict = {
+            ifd: {tag: value for tag, value in exif_dict[ifd].items() if tag in essential_tags}
+            for ifd in exif_dict
+        }
+        return piexif.dump(filtered_exif_dict)  # Convert filtered EXIF dictionary back to bytes
+    except Exception as e:
+        print(f"\033[31mFailed to filter EXIF data: Error: {e}\033[0m")
+        return None  # Return None if filtering fails
+
+def save_compressed_image(img, output_file, exif_data=None, quality=20):
+    """Saves the image with compression and optional EXIF data."""
+    try:
+        if exif_data is None: 
+            img.save(output_file, optimize=True, quality=quality)
+        else:
+            print("Saving with exif data present")
+            print(exif_data)
+            img.save(output_file, optimize=True, quality=quality, exif=exif_data)
+    except Exception as e:
+        print(f"\033[31mError saving image: {output_file}. Error: {e}\033[0m")
+
+def compress_image(input_file, output_file):
+    """Compresses an image, corrects orientation, and preserves essential EXIF data."""
+    # Load the image
+    img = load_image(input_file)
+    if img is None:
+        shutil.copy2(input_file, output_file)  # Copy the corrupt file if image loading fails
+        return
+
+    # Extract original EXIF data
+    # exif_data = img.info.get('exif', None)
+ 
+    # exif_data = piexif.load(input_file)
+
+    
+    # Correct the image orientation based on EXIF data
+    img = correct_orientation(img)
+
+    exif_data = img.getexif().tobytes()
+
+
+    if not exif_data:
+        print("No exif found")
+    else: 
+        print("Found EXIF =--------------------------------------------------------------->")
+        print(img.getexif())
+
+    # Filter EXIF data to keep only essential tags
+    # filtered_exif_data_result = filter_exif_data(exif_data)
+
+    # Prepare the EXIF dictionary for piexif
+   
+    # essential_tags = [ 
+    #         271, # Manufacturer of the camera used to capture the image.
+    #         272, # Model of the camera used to capture the image.
+    #         274, # Orientation of the image
+    #         36867, # Date and time when the photo was originally taken.
+    #         40962, # Image width in pixels.
+    #         40963, # Image height in pixels.
+    #         # 34853, # GPS data
+    #     ]
+    # # Create a new dictionary to hold filtered EXIF data
+
+    
+    # try:
+    #     exif_dict = piexif.load(exif_data)  # Load EXIF data into a dictionary
+    #     # Filter the EXIF dictionary to retain only essential tags
+    #     filtered_exif_dict = {
+    #         ifd: {tag: value for tag, value in exif_dict[ifd].items() if tag in essential_tags}
+    #         for ifd in exif_dict
+    #     }
+    #     exif_bytes = piexif.dump(filtered_exif_dict)  # Convert filtered EXIF dictionary back to bytes
+    # except Exception as e:
+    #     print(f"Failed to filter EXIF data: Error: {e}")
+    #     return None  # Return None if filtering fails
+
+    # if filtered_exif_data_result is None:
+    #     print("None filter")
+    # else: 
+    #     print("Some filters spotted ===>")
+
+    # Save the compressed image
+    save_compressed_image(img, output_file, exif_data=exif_data)
 
 def compress_video(input_file, output_file, crf):
     """Compresses a video and saves it to the output file."""
@@ -138,19 +291,19 @@ def process_files(folder):
                     total_skipped_videos_size += input_size  # Track skipped video size
                 else:
                     if 10 <= input_size_mb < 20:
-                        crf = 32
-                    elif 20 <= input_size_mb < 50:
-                        crf = 33
-                    elif 50 <= input_size_mb < 150:
                         crf = 34
-                    elif 150 <= input_size_mb < 300:
+                    elif 20 <= input_size_mb < 50:
                         crf = 35
-                    elif 300 <= input_size_mb < 500:
-                        crf = 37
-                    elif 500 <= input_size_mb < 1024:
+                    elif 50 <= input_size_mb < 150:
                         crf = 38
-                    else:
+                    elif 150 <= input_size_mb < 300:
                         crf = 39
+                    elif 300 <= input_size_mb < 500:
+                        crf = 40
+                    elif 500 <= input_size_mb < 1024:
+                        crf = 41
+                    else:
+                        crf = 42
 
                     original_size = os.path.getsize(input_file)
                     print(f"\033[33mCompressing video (Size= {format_size(original_size)} ) (CRF {crf}): {input_file}\033[0m")
