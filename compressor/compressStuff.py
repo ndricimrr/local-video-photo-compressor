@@ -99,12 +99,23 @@ def correct_orientation(img):
         if orientation_tag and orientation_tag in exif_data:
             orientation_value = exif_data[orientation_tag]
             # Apply rotation based on the orientation value
-            if orientation_value == 3:
+            if orientation_value == 1:
+                # Do nothing
+                pass
+            elif orientation_value == 2:
+                img = img.transpose(method=Image.FLIP_LEFT_RIGHT)
+            elif orientation_value == 3:
                 img = img.rotate(180, expand=True)
+            elif orientation_value == 4:
+                img = img.transpose(method=Image.FLIP_TOP_BOTTOM)
+            elif orientation_value == 5:
+                img = img.rotate(90, expand=True).transpose(method=Image.FLIP_LEFT_RIGHT)
             elif orientation_value == 6:
-                img = img.rotate(270, expand=True)
+                img = img.rotate(90, expand=True)  # Correct for right-top
+            elif orientation_value == 7:
+                img = img.rotate(-90, expand=True).transpose(method=Image.FLIP_LEFT_RIGHT)
             elif orientation_value == 8:
-                img = img.rotate(90, expand=True)
+                img = img.rotate(-90, expand=True)  # Correct for top-right
 
 
         # if orientation in exif_data:
@@ -181,7 +192,7 @@ def compress_image(input_file, output_file):
 
     
     # Correct the image orientation based on EXIF data
-    img = correct_orientation(img)
+    # img = correct_orientation(img)
 
     exif_data = img.getexif().tobytes()
 
