@@ -101,10 +101,13 @@ def correct_orientation(img):
             # Apply rotation based on the orientation value
             if orientation_value == 3:
                 img = img.rotate(180, expand=True)
+                print("Orientation 3")
             elif orientation_value == 6:
                 img = img.rotate(270, expand=True)
+                print("Orientation 6")
             elif orientation_value == 8:
                 img = img.rotate(90, expand=True)
+                print("Orientation 8")
 
 
         # if orientation in exif_data:
