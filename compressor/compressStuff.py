@@ -77,65 +77,6 @@ def load_image(input_file):
         failed_files.append(input_file)
         return None
 
-def correct_orientation(img):
-    """Corrects the image orientation based on EXIF data."""
-    try:
-        exif_data = img.getexif()  # Get EXIF data if available
-        if not exif_data:
-            return img  # No EXIF, no orientation correction
-
-        # Find the orientation tag in the EXIF data
-        # for orientation in ExifTags.TAGS.keys():
-        #     if ExifTags.TAGS[orientation] == 'Orientation':
-        #         break
-
-        # Find the orientation tag in the EXIF data
-        orientation_tag = None
-        for tag in ExifTags.TAGS.keys():
-            if ExifTags.TAGS[tag] == 'Orientation':
-                orientation_tag = tag
-                break
-        
-        if orientation_tag and orientation_tag in exif_data:
-            orientation_value = exif_data[orientation_tag]
-            # Apply rotation based on the orientation value
-            if orientation_value == 1:
-                # Do nothing
-                pass
-            elif orientation_value == 2:
-                img = img.transpose(method=Image.FLIP_LEFT_RIGHT)
-            elif orientation_value == 3:
-                img = img.rotate(180, expand=True)
-            elif orientation_value == 4:
-                img = img.transpose(method=Image.FLIP_TOP_BOTTOM)
-            elif orientation_value == 5:
-                img = img.rotate(90, expand=True).transpose(method=Image.FLIP_LEFT_RIGHT)
-            elif orientation_value == 6:
-                img = img.rotate(90, expand=True)  # Correct for right-top
-            elif orientation_value == 7:
-                img = img.rotate(-90, expand=True).transpose(method=Image.FLIP_LEFT_RIGHT)
-            elif orientation_value == 8:
-                img = img.rotate(-90, expand=True)  # Correct for top-right
-
-
-        # if orientation in exif_data:
-        #     print("Orientation inside")
-        #     orientation_value = exif_data[orientation]
-        #     if orientation_value == 3:
-        #         print("Orientation 3")
-        #         img = img.rotate(180, expand=True)
-        #     elif orientation_value == 6:
-        #         print("Orientation 6")
-        #         img = img.rotate(270, expand=True)
-        #     elif orientation_value == 8:
-        #         print("Orientation 8")
-        #         img = img.rotate(90, expand=True)
-        print("Orientation is fine")
-        return img
-    except Exception as e:
-        print(f"\033[31mError correcting orientation: {e}\033[0m")
-        return img  # Return the unmodified image if any error occurs
-
 def filter_exif_data(exif_data, essential_tags=None):
     """Filters EXIF data to retain only the essential tags."""
     if essential_tags is None:
@@ -172,7 +113,6 @@ def save_compressed_image(img, output_file, exif_data=None, quality=20):
             img.save(output_file, optimize=True, quality=quality)
         else:
             print("Saving with exif data present")
-            print(exif_data)
             img.save(output_file, optimize=True, quality=quality, exif=exif_data)
     except Exception as e:
         print(f"\033[31mError saving image: {output_file}. Error: {e}\033[0m")
@@ -185,59 +125,13 @@ def compress_image(input_file, output_file):
         shutil.copy2(input_file, output_file)  # Copy the corrupt file if image loading fails
         return
 
-    # Extract original EXIF data
-    # exif_data = img.info.get('exif', None)
- 
-    # exif_data = piexif.load(input_file)
-
-    
-    # Correct the image orientation based on EXIF data
-    # img = correct_orientation(img)
-
     exif_data = img.getexif().tobytes()
-
 
     if not exif_data:
         print("No exif found")
     else: 
-        print("Found EXIF =--------------------------------------------------------------->")
-        print(img.getexif())
+        print("-- Found EXIF data")
 
-    # Filter EXIF data to keep only essential tags
-    # filtered_exif_data_result = filter_exif_data(exif_data)
-
-    # Prepare the EXIF dictionary for piexif
-   
-    # essential_tags = [ 
-    #         271, # Manufacturer of the camera used to capture the image.
-    #         272, # Model of the camera used to capture the image.
-    #         274, # Orientation of the image
-    #         36867, # Date and time when the photo was originally taken.
-    #         40962, # Image width in pixels.
-    #         40963, # Image height in pixels.
-    #         # 34853, # GPS data
-    #     ]
-    # # Create a new dictionary to hold filtered EXIF data
-
-    
-    # try:
-    #     exif_dict = piexif.load(exif_data)  # Load EXIF data into a dictionary
-    #     # Filter the EXIF dictionary to retain only essential tags
-    #     filtered_exif_dict = {
-    #         ifd: {tag: value for tag, value in exif_dict[ifd].items() if tag in essential_tags}
-    #         for ifd in exif_dict
-    #     }
-    #     exif_bytes = piexif.dump(filtered_exif_dict)  # Convert filtered EXIF dictionary back to bytes
-    # except Exception as e:
-    #     print(f"Failed to filter EXIF data: Error: {e}")
-    #     return None  # Return None if filtering fails
-
-    # if filtered_exif_data_result is None:
-    #     print("None filter")
-    # else: 
-    #     print("Some filters spotted ===>")
-
-    # Save the compressed image
     save_compressed_image(img, output_file, exif_data=exif_data)
 
 def compress_video(input_file, output_file, crf):
@@ -245,6 +139,8 @@ def compress_video(input_file, output_file, crf):
     cmd = [
         'ffmpeg',
         '-i', input_file,
+        '-movflags', 'use_metadata_tags',
+        '-map_metadata', '0',
         '-c:v', 'libx264',
         '-crf', str(crf),
         '-preset', 'fast',
