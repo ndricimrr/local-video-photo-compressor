@@ -1,5 +1,7 @@
 # Local Video Compressor
 
+<img width="612" alt="User Interface" src="https://github.com/user-attachments/assets/ffe201dc-41dd-488c-a81a-77061a3ebb20">
+
 A simple app to convert videos locally to lower sized ones.
 
 Can be used when needing to save on space with unnecessary large videos that you have in your hard disk or external one.
@@ -21,7 +23,7 @@ Current implementation is CMD only, proposed solution is to offer an User Interf
 
 It then converts the videos it found to lower file size in place. You only drag & drop the folder and the app should recursively convert everything it finds as supported file types for videos.
 
-At the end instead of 12 GB of cat videos, you end up with 100 MB maybe, sparring quite a lot of space for you.
+At the end instead of 12 GB of cat videos, you end up with 100 MB maybe, sparing quite a lot of space for you.
 
 You saved your memories and also saved some money, thats the goal.
 
