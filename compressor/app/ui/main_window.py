@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLab
 from PyQt6.QtCore import Qt
 from ui.drag_drop_area import DragDropArea
 from ui.progress_bar_widget import ProgressBarWidget  # Import the progress bar widget
-from compressStuff import analyze_compression_time
+from compressStuff import analyze_compression_time, process_files
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -71,10 +71,27 @@ class MainWindow(QWidget):
         self.estimateLabel.setStyleSheet("font-size: 16px; font-weight: bold; padding-bottom: 10px;")
         self.main_layout.addWidget(self.estimateLabel)
 
+        self.totalFiles = QLabel("Total Files: ")
+        self.totalFiles.setStyleSheet("font-size: 12px; font-weight: light; padding-bottom: 10px;")
+        self.main_layout.addWidget(self.totalFiles)
+
+        self.totalImages = QLabel("Total Images: ")
+        self.totalImages.setStyleSheet("font-size: 12px; font-weight: light; padding-bottom: 10px;")
+        self.main_layout.addWidget(self.totalImages)
+
+        self.totalVideos = QLabel("Total Videos: ")
+        self.totalVideos.setStyleSheet("font-size: 12px; font-weight: light; padding-bottom: 10px;")
+        self.main_layout.addWidget(self.totalVideos)
+
+        self.totalUnsupportedFiles = QLabel("Total Unsupported Files: ")
+        self.totalUnsupportedFiles.setStyleSheet("font-size: 12px; font-weight: light; padding-bottom: 10px;")
+        self.main_layout.addWidget(self.totalUnsupportedFiles)
+
         # Compress button, initially disabled
         self.compress_button = QPushButton("Compress")
         self.compress_button.setEnabled(False)
         self.compress_button.setStyleSheet(self.button_style())
+        self.compress_button.clicked.connect(self.onCompressClicked)
         self.main_layout.addWidget(self.compress_button)
 
 
@@ -94,6 +111,9 @@ class MainWindow(QWidget):
         self.main_layout.setSpacing(0)
         self.setLayout(self.main_layout)
 
+    def onCompressClicked(self):
+        process_files(self.inputFolder, self.outputFolder)
+        
     def simulate_progress(self):
         # Simulating the progress bar filling up
         for value in range(0, 101, 10):
@@ -117,8 +137,16 @@ class MainWindow(QWidget):
     def update_input_folder(self, text):
         """Update inputFolder variable when input folder text area changes."""
         self.inputFolder = text
-        total_estimated_time, total_estimated_time_str = analyze_compression_time(text)
-        self.estimateLabel.setText("Estimated Time Required: " + total_estimated_time_str)
+        analysisResult = analyze_compression_time(text)
+        self.estimateLabel.setText("Estimated Time Required: " + analysisResult['total_estimated_time_str'])
+        self.totalFiles.setText("Total Files: " + analysisResult['total_files_count'] + ' files (' + analysisResult['formatted_total_size'] +' )')
+        self.totalImages.setText("Total Images: " + analysisResult['image_files_count'] + ' files (' + analysisResult['formatted_image_size'] +' )')
+        self.totalVideos.setText("Total Videos: " + analysisResult['video_files_count'] + ' files (' + analysisResult['formatted_video_size'] +' )')
+        self.totalUnsupportedFiles.setText("Unsupported Files: " + analysisResult['unsupported_files_count'] + ' files (' + analysisResult['formatted_unsupported_size'] +' )')
+
+
+
+
 
     def update_output_folder(self, text):
         """Update outputFolder variable when output folder text area changes."""

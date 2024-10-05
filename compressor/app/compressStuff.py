@@ -146,15 +146,20 @@ def compress_video(input_file, output_file, crf):
     ]
     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # Suppress FFmpeg output
 
-def process_files(folder):
+def process_files(folder, outputFolder):
     """Recursively processes files in the given folder."""
     global processed_images_count, processed_videos_count, skipped_videos_count, unsupported_files_count
     global total_original_images_size, total_final_images_size
     global total_original_videos_size, total_final_videos_size
     global total_unsupported_files_size, total_skipped_videos_size
 
-    # Define the output folder as a sibling directory
-    output_folder = os.path.join(os.path.dirname(folder), OUTPUT_FOLDER_NAME)
+    if outputFolder:
+        # Create the output folder inside the given outputFolder path
+        output_folder = os.path.join(outputFolder, OUTPUT_FOLDER_NAME)
+    else:
+        # Create the output folder as a sibling directory
+        output_folder = os.path.join(os.path.dirname(folder), OUTPUT_FOLDER_NAME)
+
     os.makedirs(output_folder, exist_ok=True)  # Create the output folder if it doesn't exist
     print(f"Output folder: {output_folder}")  # Print the output folder location
     
@@ -424,7 +429,18 @@ def analyze_compression_time(folder, speed='fast'):
     print(f"  - Videos: {estimated_video_time_str}")
     print(f"  - Unsupported files (copying): {estimated_unsupported_time_str}")
     print(f"  - Total: {total_estimated_time_str}")
-    return total_estimated_time, total_estimated_time_str
+    return {
+        'total_estimated_time': total_estimated_time,
+        'total_estimated_time_str': total_estimated_time_str,
+        'total_files_count': total_files_count.__str__(),
+        'formatted_total_size': formatted_total_size,
+        'image_files_count': image_files_count.__str__(),
+        'formatted_image_size': formatted_image_size,
+        'video_files_count': video_files_count.__str__(),
+        'formatted_video_size': formatted_video_size,
+        'unsupported_files_count': unsupported_files_count.__str__(),
+        'formatted_unsupported_size': formatted_unsupported_size
+    }
 
 
 
