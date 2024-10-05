@@ -6,6 +6,7 @@ import shutil  # For copying files
 import signal  # For handling Ctrl+C signal
 from PIL import Image, UnidentifiedImageError, ExifTags
 import piexif
+import time
 
 # Constants for output folder name and progress file
 OUTPUT_FOLDER_NAME = "output"
@@ -70,7 +71,6 @@ def load_progress():
 def load_image(input_file):
     """Loads an image from the input file and returns the image object."""
     try:
-        print("Loading image is fine")
         return Image.open(input_file)
     except UnidentifiedImageError:
         print(f"\033[31mFailed to process image (corrupt) (Copying anyway...): {input_file}\033[0m")
@@ -129,8 +129,6 @@ def compress_image(input_file, output_file):
 
     if not exif_data:
         print("No exif found")
-    else: 
-        print("-- Found EXIF data")
 
     save_compressed_image(img, output_file, exif_data=exif_data)
 
@@ -178,7 +176,14 @@ def process_files(folder):
                 print(f"\033[32mCompressing image: {input_file}\033[0m")
                 original_size = os.path.getsize(input_file)
                 total_original_images_size += original_size
+
+                start_time = time.time()  # Record the start time
                 compress_image(input_file, output_file)
+                end_time = time.time()  # Record the end time
+                elapsed_time = end_time - start_time
+
+                print(f"Compression finished in {elapsed_time:.4f} seconds.") 
+
                 final_size = os.path.getsize(output_file)
                 total_final_images_size += final_size
                 processed_images_count += 1
@@ -280,7 +285,7 @@ def main():
     """Main function to execute the script."""
     signal.signal(signal.SIGINT, signal_handler)  # Handle Ctrl+C
     if len(sys.argv) < 2:
-        print("Usage: python compressStuff.py <folder_path> [-R]")
+        print("Usage: python compressStuff.py <folder_path> [--compression-analysis] [-R]")
         return
     
     folder = sys.argv[1]
@@ -288,12 +293,140 @@ def main():
         print(f"Error: The folder {folder} does not exist.")
         return
 
-    # Load processed files if resuming
-    global processed_files
-    processed_files = load_progress()
+    if '--compression-analysis' in sys.argv:
+        # Check if a specific speed option is provided
+        if '-speed' in sys.argv:
+            speed_index = sys.argv.index('-speed') + 1
+            if speed_index < len(sys.argv):
+                speed_option = sys.argv[speed_index]
+                analyze_compression_time(folder, speed=speed_option)
+            else:
+                print("Error: No speed option provided after '-speed'.")
+        else:
+            analyze_compression_time(folder)  # Default to 'fast'
+    else:
+        # If not analysis mode, continue with normal compression
+        # Load processed files if resuming
+        global processed_files
+        processed_files = load_progress()
+        
+        # Start processing files
+        process_files(folder)
 
-    # Start processing files
-    process_files(folder)
+def format_time(minutes):
+    """Convert time in minutes to hours and minutes if necessary, and round it."""
+    rounded_minutes = round(minutes)  # Round minutes to remove decimals
+    if rounded_minutes >= 60:
+        hours = rounded_minutes // 60
+        remaining_minutes = rounded_minutes % 60
+        return f"{hours}h {remaining_minutes}m"
+    return f"{rounded_minutes} minutes"
+
+# Define speed multipliers based on compression settings
+speed_multipliers = {
+    'ultrafast': 0.5,
+    'veryfast': 1.0,
+    'fast': 1.5,
+    'slow': 2.0
+}
+
+def estimate_compression_time(size_in_gb, speed, file_type):
+    """Estimate compression time based on file size and compression speed."""
+    base_time_per_gb = {
+        'image': 0.6,  # Base time: 0.6 minutes per GB for images
+        'video': 8,  # Base time: 15 minutes per GB for videos (adjust as needed)
+        'copy': 1  # Base time: 1 minute per GB for unsupported files (copying)
+    }
+    
+    # Get the base time for the file type (image/video/copy)
+    base_time = base_time_per_gb[file_type]
+
+    # Apply the speed multiplier
+    multiplier = speed_multipliers.get(speed, 1.0)
+
+    # Estimate total time
+    if (file_type == "image"):
+        estimated_time = size_in_gb * base_time
+    else:
+        estimated_time = size_in_gb * base_time * multiplier
+    return estimated_time
+
+def analyze_compression_time(folder, speed='fast'):
+    """Analyzes the folder for compression stats and estimated time."""
+    total_files_count = 0
+    total_size = 0
+    image_files_count = 0
+    video_files_count = 0
+    unsupported_files_count = 0
+    total_image_size = 0
+    total_video_size = 0
+    total_unsupported_size = 0
+
+    image_filetypes = set()
+    video_filetypes = set()
+    unsupported_filetypes = set()
+
+    # Walk through the directory to analyze file types
+    for dirpath, _, filenames in os.walk(folder):
+        for filename in filenames:
+            input_file = os.path.join(dirpath, filename)
+            file_size = os.path.getsize(input_file)
+            total_files_count += 1
+            total_size += file_size
+
+            # Categorize files based on extension
+            if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                image_files_count += 1
+                total_image_size += file_size
+                image_filetypes.add(filename.split('.')[-1].lower())
+            elif filename.lower().endswith(('.mp4', '.mkv', '.mov')):
+                video_files_count += 1
+                total_video_size += file_size
+                video_filetypes.add(filename.split('.')[-1].lower())
+            else:
+                unsupported_files_count += 1
+                total_unsupported_size += file_size
+                unsupported_filetypes.add(filename.split('.')[-1].lower())
+
+    # Convert sizes to GB for time estimation
+    total_image_size_gb = total_image_size / (1024 * 1024 * 1024)
+    total_video_size_gb = total_video_size / (1024 * 1024 * 1024)
+    total_unsupported_size_gb = total_unsupported_size / (1024 * 1024 * 1024)
+
+    # Estimate compression times
+    estimated_image_time = estimate_compression_time(total_image_size_gb, speed, 'image')
+    estimated_video_time = estimate_compression_time(total_video_size_gb, speed, 'video')
+    estimated_unsupported_time = estimate_compression_time(total_unsupported_size_gb, speed, 'copy')
+
+    total_estimated_time = estimated_image_time + estimated_video_time + estimated_unsupported_time
+
+    # Convert time to hours + minutes if needed
+    estimated_image_time_str = format_time(estimated_image_time)
+    estimated_video_time_str = format_time(estimated_video_time)
+    estimated_unsupported_time_str = format_time(estimated_unsupported_time)
+    total_estimated_time_str = format_time(total_estimated_time)
+
+    # Format total size to GB if necessary
+    formatted_total_size = format_size(total_size)
+    formatted_image_size = format_size(total_image_size)
+    formatted_video_size = format_size(total_video_size)
+    formatted_unsupported_size = format_size(total_unsupported_size)
+
+    # Print the analysis
+    print(f"\n\033[34mCompression Analysis Report\033[0m")
+    print(f"Total files found: {total_files_count}")
+    print(f"Total folder size: {formatted_total_size}")
+    print(f"  - Image files: {image_files_count} ({formatted_image_size}) with filetypes: {', '.join(image_filetypes)}")
+    print(f"  - Video files: {video_files_count} ({formatted_video_size}) with filetypes: {', '.join(video_filetypes)}")
+    print(f"  - Unsupported files: {unsupported_files_count} ({formatted_unsupported_size}) with filetypes: {', '.join(unsupported_filetypes)}")
+    print(f"\nEstimated Compression Time (at {speed} speed):")
+    print(f"  - Images: {estimated_image_time_str}")
+    print(f"  - Videos: {estimated_video_time_str}")
+    print(f"  - Unsupported files (copying): {estimated_unsupported_time_str}")
+    print(f"  - Total: {total_estimated_time_str}")
+    return total_estimated_time, total_estimated_time_str
+
+
 
 if __name__ == "__main__":
     main()
