@@ -66,7 +66,10 @@ def load_progress():
             total_final_videos_size = data.get('total_final_videos_size', 0)
             total_unsupported_files_size = data.get('total_unsupported_files_size', 0)  # Load unsupported size
             total_skipped_videos_size = data.get('total_skipped_videos_size', 0)  # Load skipped videos size
+            print("Loaded progress successfully")
             return set(data.get('processed_files', []))
+   
+    print("Error: " + PROGRESS_FILE_NAME + " not found. Loading progress failed.")
     return set()
 
 def load_image(input_file):
@@ -168,12 +171,28 @@ def compress_video(input_file, output_file, crf, worker):
         process.wait()  # Ensure the process is cleaned up
     
 
-def process_files(folder, outputFolder, worker):
+def process_files(folder, outputFolder, shouldLoadProgress, worker):
     """Recursively processes files in the given folder."""
     global processed_images_count, processed_videos_count, skipped_videos_count, unsupported_files_count
     global total_original_images_size, total_final_images_size
     global total_original_videos_size, total_final_videos_size
     global total_unsupported_files_size, total_skipped_videos_size
+
+    # Load processed files if resuming
+    
+    global processed_files
+    if shouldLoadProgress: 
+        processed_files = load_progress()
+    else:
+        print("\n\n\n\nRestarting without loading progress.****")
+        total_original_images_size = 0
+        total_original_videos_size = 0
+        processed_files = set()
+        if os.path.exists(PROGRESS_FILE_NAME):
+            os.remove(PROGRESS_FILE_NAME)
+            print(f"{PROGRESS_FILE_NAME} has been removed. Fresh start...")
+
+
 
     if outputFolder:
         # Create the output folder inside the given outputFolder path
@@ -362,11 +381,6 @@ def main():
         else:
             analyze_compression_time(folder)  # Default to 'fast'
     else:
-        # If not analysis mode, continue with normal compression
-        # Load processed files if resuming
-        global processed_files
-        processed_files = load_progress()
-        
         # Start processing files
         process_files(folder)
 
