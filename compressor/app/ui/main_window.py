@@ -3,10 +3,17 @@ from PyQt6.QtCore import Qt
 from ui.drag_drop_area import DragDropArea
 from ui.progress_bar_widget import ProgressBarWidget  # Import the progress bar widget
 from compressStuff import analyze_compression_time, process_files
+from publisher import Publisher
+import math 
+from PyQt6.QtCore import QThread
+from file_process_worker import FileProcessingWorker
 
 class MainWindow(QWidget):
+    
+
     def __init__(self):
         super().__init__()
+        self.analysisResult = None
 
         self.setWindowTitle("Folder Compression Tool")
         self.setGeometry(300, 200, 600, 400)
@@ -14,6 +21,9 @@ class MainWindow(QWidget):
         # Variables for input and output folders
         self.inputFolder = ""
         self.outputFolder = ""
+
+        self.worker = None
+        self.thread = None
 
         # Main layout (vertical)
         self.main_layout = QVBoxLayout()
@@ -100,10 +110,7 @@ class MainWindow(QWidget):
         self.progress_bar_widget.setContentsMargins(0,10,0,10)
         self.main_layout.addWidget(self.progress_bar_widget) 
 
-        # test it
-        self.simulate_button = QPushButton("Simulate Progress")
-        self.simulate_button.clicked.connect(self.simulate_progress)
-        self.main_layout.addWidget(self.simulate_button)
+
  
         
             
@@ -111,14 +118,41 @@ class MainWindow(QWidget):
         self.main_layout.setSpacing(0)
         self.setLayout(self.main_layout)
 
-    def onCompressClicked(self):
-        process_files(self.inputFolder, self.outputFolder)
-        
-    def simulate_progress(self):
-        # Simulating the progress bar filling up
-        for value in range(0, 101, 10):
-            self.progress_bar_widget.update_progress(value)
 
+
+    def onCompressClicked(self):
+        def updateProgressBar(data):
+            current_num_videos = data['processed_videos_count']
+            current_videos_size = data['total_original_videos_size']
+
+            current_images_size = data['total_original_images_size']
+            current_num_images = data['processed_images_count']
+
+            total_count = self.analysisResult['total_files_count']
+            total_size = self.analysisResult['total_size']
+
+            analysis_total_size = self.analysisResult['total_size']
+
+            progress = (( current_images_size + current_videos_size ) / analysis_total_size) * 100
+
+            print("Update progress" + math.ceil(progress).__str__())
+
+            self.progress_bar_widget.update_progress(math.ceil(progress))
+    
+
+        #  Add worker and start thread
+        self.worker = FileProcessingWorker(self.inputFolder, self.outputFolder)
+        self.thread = QThread()
+        self.worker.moveToThread(self.thread)
+
+        # Connect the worker's progress signal to the UI update function
+        self.worker.progress.connect(updateProgressBar)
+        self.thread.finished.connect(self.thread.deleteLater)
+
+        # Start the process
+        self.thread.started.connect(self.worker.run)
+        self.thread.start()
+        
     def add_folder(self):
         """Open file dialog to manually select a folder."""
         folder_path = QFileDialog.getExistingDirectory(self, "Select Input Folder")
@@ -137,12 +171,13 @@ class MainWindow(QWidget):
     def update_input_folder(self, text):
         """Update inputFolder variable when input folder text area changes."""
         self.inputFolder = text
-        analysisResult = analyze_compression_time(text)
-        self.estimateLabel.setText("Estimated Time Required: " + analysisResult['total_estimated_time_str'])
-        self.totalFiles.setText("Total Files: " + analysisResult['total_files_count'] + ' files (' + analysisResult['formatted_total_size'] +' )')
-        self.totalImages.setText("Total Images: " + analysisResult['image_files_count'] + ' files (' + analysisResult['formatted_image_size'] +' )')
-        self.totalVideos.setText("Total Videos: " + analysisResult['video_files_count'] + ' files (' + analysisResult['formatted_video_size'] +' )')
-        self.totalUnsupportedFiles.setText("Unsupported Files: " + analysisResult['unsupported_files_count'] + ' files (' + analysisResult['formatted_unsupported_size'] +' )')
+        self.analysisResult = analyze_compression_time(text)
+
+        self.estimateLabel.setText("Estimated Time Required: " + self.analysisResult['total_estimated_time_str'])
+        self.totalFiles.setText("Total Files: " + self.analysisResult['total_files_count'] + ' files (' + self.analysisResult['formatted_total_size'] +' )')
+        self.totalImages.setText("Total Images: " + self.analysisResult['image_files_count'] + ' files (' + self.analysisResult['formatted_image_size'] +' )')
+        self.totalVideos.setText("Total Videos: " + self.analysisResult['video_files_count'] + ' files (' + self.analysisResult['formatted_video_size'] +' )')
+        self.totalUnsupportedFiles.setText("Unsupported Files: " + self.analysisResult['unsupported_files_count'] + ' files (' + self.analysisResult['formatted_unsupported_size'] +' )')
 
 
 
@@ -195,6 +230,7 @@ class MainWindow(QWidget):
                 border-color: #0078d7;
             }
         """
+   
     def output_folder_input_field_style(self):
         """Return styling for input fields."""
         return """
