@@ -186,7 +186,13 @@ def process_files(folder, outputFolder, worker):
     print(f"Output folder: {output_folder}")  # Print the output folder location
     
     for dirpath, _, filenames in os.walk(folder):
+        if not worker._is_running:
+            print("Processing stopped by user (Outer loop).")
+            break
         for filename in filenames:
+            if not worker._is_running:
+                print("Processing stopped by user (Inner Loop).")
+                break
             input_file = os.path.join(dirpath, filename)
             relative_path = os.path.relpath(input_file, folder)
             output_file = os.path.join(output_folder, relative_path)  # Update to use the sibling output folder
@@ -207,10 +213,6 @@ def process_files(folder, outputFolder, worker):
             
             # Process based on file type
             if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                if not worker._is_running:
-                    print("Processing stopped by user (Images).")
-                    break
-
                 print(f"\033[32mCompressing image: {input_file}\033[0m")
                 original_size = os.path.getsize(input_file)
                 total_original_images_size += original_size
@@ -235,10 +237,6 @@ def process_files(folder, outputFolder, worker):
                 print(f"Processed {input_file}: {format_size(original_size)} -> {format_size(final_size)} , (Decrease: {calculate_percentage_decrease(original_size, final_size):.2f} %)")
 
             elif filename.lower().endswith(('.mp4', '.mkv', '.mov')):
-                if not worker._is_running:
-                    print("Processing stopped by user (Videos).")
-                    break
-
                 input_size = os.path.getsize(input_file)
                 input_size_mb = input_size / (1024 * 1024)
                 crf = 47  # Default CRF value
@@ -271,6 +269,7 @@ def process_files(folder, outputFolder, worker):
                    
                     total_original_videos_size += original_size
                     compress_video(input_file, output_file, crf, worker)
+
                     final_size = os.path.getsize(output_file)
                     total_final_videos_size += final_size
 
