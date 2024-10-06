@@ -8,6 +8,7 @@ from PIL import Image, UnidentifiedImageError, ExifTags
 import piexif
 import time
 
+
 # Constants for output folder name and progress file
 OUTPUT_FOLDER_NAME = "output"
 PROGRESS_FILE_NAME = "saved-progress.json"
@@ -146,7 +147,7 @@ def compress_video(input_file, output_file, crf):
     ]
     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # Suppress FFmpeg output
 
-def process_files(folder, outputFolder):
+def process_files(folder, outputFolder, worker):
     """Recursively processes files in the given folder."""
     global processed_images_count, processed_videos_count, skipped_videos_count, unsupported_files_count
     global total_original_images_size, total_final_images_size
@@ -176,6 +177,13 @@ def process_files(folder, outputFolder):
             if input_file in processed_files:
                 continue
             
+            notify_data = {
+                "processed_images_count": 0,
+                "processed_videos_count": 0,
+                "total_original_images_size": 0,
+                "total_original_videos_size": 0
+            }   
+            
             # Process based on file type
             if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
                 print(f"\033[32mCompressing image: {input_file}\033[0m")
@@ -191,7 +199,14 @@ def process_files(folder, outputFolder):
 
                 final_size = os.path.getsize(output_file)
                 total_final_images_size += final_size
+                
                 processed_images_count += 1
+                notify_data['processed_images_count'] = processed_images_count
+                notify_data['total_original_images_size'] = total_original_images_size
+                notify_data['processed_videos_count'] = processed_videos_count
+                notify_data['total_original_videos_size'] = total_original_videos_size
+
+                worker.progress.emit(notify_data)
                 print(f"Processed {input_file}: {format_size(original_size)} -> {format_size(final_size)} , (Decrease: {calculate_percentage_decrease(original_size, final_size):.2f} %)")
 
             elif filename.lower().endswith(('.mp4', '.mkv', '.mov')):
@@ -229,7 +244,16 @@ def process_files(folder, outputFolder):
                     compress_video(input_file, output_file, crf)
                     final_size = os.path.getsize(output_file)
                     total_final_videos_size += final_size
+
                     processed_videos_count += 1
+
+                    notify_data['processed_images_count'] = processed_images_count
+                    notify_data['total_original_images_size'] = total_original_images_size
+                    notify_data['processed_videos_count'] = processed_videos_count
+                    notify_data['total_original_videos_size'] = total_original_videos_size
+
+                    worker.progress.emit(notify_data)
+
                     percentage_decrease = 100 * (original_size - final_size) / original_size if original_size > 0 else 0
                     print(f"Processed {input_file}: {format_size(original_size)} -> {format_size(final_size)} (Decrease: {percentage_decrease:.2f}%)")
                 processed_videos_count += 1  # Count copied video as processed
@@ -433,6 +457,7 @@ def analyze_compression_time(folder, speed='fast'):
         'total_estimated_time': total_estimated_time,
         'total_estimated_time_str': total_estimated_time_str,
         'total_files_count': total_files_count.__str__(),
+        'total_size': total_size,
         'formatted_total_size': formatted_total_size,
         'image_files_count': image_files_count.__str__(),
         'formatted_image_size': formatted_image_size,
