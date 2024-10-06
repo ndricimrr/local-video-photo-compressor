@@ -1,6 +1,15 @@
 # Local Video Compressor
 
-<img width="612" alt="User Interface" src="https://github.com/user-attachments/assets/ffe201dc-41dd-488c-a81a-77061a3ebb20">
+## User Interface
+
+### Initial Screen
+<img width="612" alt="Screenshot 2024-10-06 at 20 19 17" src="https://github.com/user-attachments/assets/3a71b05d-14f6-463f-8485-afb155662227">
+
+### In Progress
+<img width="617" alt="Screenshot 2024-10-06 at 20 19 26" src="https://github.com/user-attachments/assets/bb7e5e90-7c72-47cb-9e9c-5bd8f2cc5618">
+
+### Paused
+<img width="614" alt="Screenshot 2024-10-06 at 20 19 36" src="https://github.com/user-attachments/assets/1d827d59-2d0e-4b25-b355-f801cd542d3d">
 
 A simple app to convert videos locally to lower sized ones.
 
