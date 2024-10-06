@@ -21,6 +21,7 @@ class MainWindow(QWidget):
         # Variables for input and output folders
         self.inputFolder = ""
         self.outputFolder = ""
+        self.loadPreviousProgress = False
 
         self.worker = None
         self.thread = None
@@ -104,7 +105,7 @@ class MainWindow(QWidget):
         self.start_button = QPushButton("Start")
         self.start_button.setEnabled(False)
         self.start_button.setStyleSheet(self.button_style())
-        self.start_button.clicked.connect(self.onCompressClicked)
+        self.start_button.clicked.connect(self.onStartClicked)
         self.compressSection.addWidget(self.start_button)
 
         # Pause 
@@ -118,7 +119,7 @@ class MainWindow(QWidget):
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.setEnabled(False)
         self.cancel_button.setStyleSheet("font-size: 12px; font-weight: light; background-color: 'red'; padding: 10px; border-radius: 5px; color: 'white'")
-        self.cancel_button.clicked.connect(self.onCompressClicked)
+        self.cancel_button.clicked.connect(self.onCancelClicked)
         self.compressSection.addWidget(self.cancel_button)
 
         self.compressSection.setSpacing(10)
@@ -130,22 +131,56 @@ class MainWindow(QWidget):
         self.progress_bar_widget.setContentsMargins(0,10,0,10)
         self.main_layout.addWidget(self.progress_bar_widget) 
 
-
- 
-        
-            
         # Set main layout
         self.main_layout.setSpacing(0)
         self.setLayout(self.main_layout)
 
 
+    def onCancelClicked(self):
+        self.start_button.setStyleSheet("font-size: 12px; font-weight: light; background-color: 'blue'; padding: 10px; border-radius: 5px; color: 'white'")
+        self.pause_button.setStyleSheet("font-size: 12px; font-weight: light; background-color: 'grey'; padding: 10px; border-radius: 5px; color: 'white'")
+        self.cancel_button.setStyleSheet("font-size: 12px; font-weight: light; background-color: 'red'; padding: 10px; border-radius: 5px; color: 'white'")
+        self.start_button.setText("Start")
+        self.progress = 0
+        
+        try:
+            self.worker.progress.disconnect()
+            print("Signal disconnected")
+        except TypeError:
+            # This will catch the error if there are no connections to disconnect
+            print("Signal was not connected, nothing to disconnect")
+
+        self.progress_bar_widget.update_progress(0) 
+        self.stopProcessing()
+        self.loadPreviousProgress = False
+
+    def stopProcessing(self):
+        if self.worker:
+            print("Stopping Worker!!!!!!")
+            self.worker.stop()  # Stop the worker
+            if self.thread:
+                if self.thread.isRunning():  # Check if the thread is still active
+                    print("Stopping the thread!")
+                    self.thread.quit()  # Stop the thread
+                    self.thread.wait()  # Wait for the thread to finish
+                else:
+                    print("Thread already stopped!")
+                self.thread = None  
+            else:
+                print("Thread reference is None or already stopped!")
+        else:
+            print("NOTTTTT Stopping Worker!!!!!!")
+        
+        
+
     def onPauseClicked(self):
         print("Stopping on pause clicked")
-        self.worker.stop()
         self.start_button.setText("Continue")
         self.start_button.setStyleSheet("font-size: 12px; font-weight: light; background-color: 'green'; padding: 10px; border-radius: 5px; color: 'white'")
+        self.stopProcessing()  
+        self.loadPreviousProgress = True
 
-    def onCompressClicked(self):
+    def onStartClicked(self):
         def updateProgressBar(data):
             current_num_videos = data['processed_videos_count']
             current_videos_size = data['total_original_videos_size']
@@ -158,28 +193,29 @@ class MainWindow(QWidget):
 
             analysis_total_size = self.analysisResult['total_size']
 
-            progress = (( current_images_size + current_videos_size ) / analysis_total_size) * 100
+            self.progress = (( current_images_size + current_videos_size ) / analysis_total_size) * 100
 
-            print("Update progress" + math.ceil(progress).__str__())
+            print("Update progress" + math.ceil(self.progress).__str__())
 
-            self.progress_bar_widget.update_progress(math.ceil(progress))
+            self.progress_bar_widget.update_progress(math.ceil(self.progress))
     
-
         #  Add worker and start thread
-        self.worker = FileProcessingWorker(self.inputFolder, self.outputFolder)
+        self.worker = FileProcessingWorker(self.inputFolder, self.outputFolder, self.loadPreviousProgress)
         self.thread = QThread()
         self.worker.moveToThread(self.thread)
 
         # Connect the worker's progress signal to the UI update function
         self.worker.progress.connect(updateProgressBar)
+        
         self.thread.finished.connect(self.thread.deleteLater)
 
         # Start the process
         self.thread.started.connect(self.worker.run)
+     
         self.thread.start()
 
         self.pause_button.setEnabled(True)
-        
+        self.cancel_button.setEnabled(True)
         
     def add_folder(self):
         """Open file dialog to manually select a folder."""
