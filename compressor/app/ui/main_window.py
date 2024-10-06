@@ -142,6 +142,8 @@ class MainWindow(QWidget):
     def onPauseClicked(self):
         print("Stopping on pause clicked")
         self.worker.stop()
+        self.start_button.setText("Continue")
+        self.start_button.setStyleSheet("font-size: 12px; font-weight: light; background-color: 'green'; padding: 10px; border-radius: 5px; color: 'white'")
 
     def onCompressClicked(self):
         def updateProgressBar(data):
@@ -177,6 +179,7 @@ class MainWindow(QWidget):
         self.thread.start()
 
         self.pause_button.setEnabled(True)
+        
         
     def add_folder(self):
         """Open file dialog to manually select a folder."""
