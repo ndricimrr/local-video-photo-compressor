@@ -133,7 +133,7 @@ def compress_image(input_file, output_file):
 
     save_compressed_image(img, output_file, exif_data=exif_data)
 
-def compress_video(input_file, output_file, crf):
+def compress_video(input_file, output_file, crf, worker):
     """Compresses a video and saves it to the output file."""
     cmd = [
         'ffmpeg',
@@ -145,7 +145,28 @@ def compress_video(input_file, output_file, crf):
         '-preset', 'fast',
         output_file
     ]
-    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # Suppress FFmpeg output
+    # subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # Suppress FFmpeg output
+
+    # Run ffmpeg using Popen so we can terminate it if needed
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    try:
+        while process.poll() is None:  # While ffmpeg is running
+            if not worker._is_running:  # If stop is requested
+                print("Stopping the ffmpeg process")
+                process.terminate()  # Stop the ffmpeg process
+                process.wait()  # Wait for it to terminate gracefully
+                break
+            time.sleep(1)  # Sleep for a bit before checking again
+
+        if process.poll() is not None:  # Process finished
+            print(f"Finished processing {input_file}")
+
+    except Exception as e:
+        print(f"Error while processing: {e}")
+        process.terminate()  # Ensure ffmpeg is stopped on error
+        process.wait()  # Ensure the process is cleaned up
+    
 
 def process_files(folder, outputFolder, worker):
     """Recursively processes files in the given folder."""
@@ -165,7 +186,13 @@ def process_files(folder, outputFolder, worker):
     print(f"Output folder: {output_folder}")  # Print the output folder location
     
     for dirpath, _, filenames in os.walk(folder):
+        if not worker._is_running:
+            print("Processing stopped by user (Outer loop).")
+            break
         for filename in filenames:
+            if not worker._is_running:
+                print("Processing stopped by user (Inner Loop).")
+                break
             input_file = os.path.join(dirpath, filename)
             relative_path = os.path.relpath(input_file, folder)
             output_file = os.path.join(output_folder, relative_path)  # Update to use the sibling output folder
@@ -241,7 +268,8 @@ def process_files(folder, outputFolder, worker):
                     print(f"\033[33mCompressing video (Size= {format_size(original_size)} ) (CRF {crf}): {input_file}\033[0m")
                    
                     total_original_videos_size += original_size
-                    compress_video(input_file, output_file, crf)
+                    compress_video(input_file, output_file, crf, worker)
+
                     final_size = os.path.getsize(output_file)
                     total_final_videos_size += final_size
 

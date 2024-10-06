@@ -8,7 +8,12 @@ class FileProcessingWorker(QObject):
         super().__init__()
         self.input_folder = input_folder
         self.output_folder = output_folder
+        self._is_running = True
 
     def run(self):
         # Call the process_files function and pass the worker itself to handle signaling
         process_files(self.input_folder, self.output_folder, self)
+
+    def stop(self):
+        """Stop the file processing."""
+        self._is_running = False  # Set flag to stop processing
