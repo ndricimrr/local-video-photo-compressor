@@ -133,7 +133,7 @@ def compress_image(input_file, output_file):
 
     save_compressed_image(img, output_file, exif_data=exif_data)
 
-def compress_video(input_file, output_file, crf):
+def compress_video(input_file, output_file, crf, worker):
     """Compresses a video and saves it to the output file."""
     cmd = [
         'ffmpeg',
@@ -145,7 +145,28 @@ def compress_video(input_file, output_file, crf):
         '-preset', 'fast',
         output_file
     ]
-    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # Suppress FFmpeg output
+    # subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # Suppress FFmpeg output
+
+    # Run ffmpeg using Popen so we can terminate it if needed
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    try:
+        while process.poll() is None:  # While ffmpeg is running
+            if not worker._is_running:  # If stop is requested
+                print("Stopping the ffmpeg process")
+                process.terminate()  # Stop the ffmpeg process
+                process.wait()  # Wait for it to terminate gracefully
+                break
+            time.sleep(1)  # Sleep for a bit before checking again
+
+        if process.poll() is not None:  # Process finished
+            print(f"Finished processing {input_file}")
+
+    except Exception as e:
+        print(f"Error while processing: {e}")
+        process.terminate()  # Ensure ffmpeg is stopped on error
+        process.wait()  # Ensure the process is cleaned up
+    
 
 def process_files(folder, outputFolder, worker):
     """Recursively processes files in the given folder."""
@@ -186,6 +207,10 @@ def process_files(folder, outputFolder, worker):
             
             # Process based on file type
             if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                if not worker._is_running:
+                    print("Processing stopped by user (Images).")
+                    break
+
                 print(f"\033[32mCompressing image: {input_file}\033[0m")
                 original_size = os.path.getsize(input_file)
                 total_original_images_size += original_size
@@ -210,6 +235,10 @@ def process_files(folder, outputFolder, worker):
                 print(f"Processed {input_file}: {format_size(original_size)} -> {format_size(final_size)} , (Decrease: {calculate_percentage_decrease(original_size, final_size):.2f} %)")
 
             elif filename.lower().endswith(('.mp4', '.mkv', '.mov')):
+                if not worker._is_running:
+                    print("Processing stopped by user (Videos).")
+                    break
+
                 input_size = os.path.getsize(input_file)
                 input_size_mb = input_size / (1024 * 1024)
                 crf = 47  # Default CRF value
@@ -241,7 +270,7 @@ def process_files(folder, outputFolder, worker):
                     print(f"\033[33mCompressing video (Size= {format_size(original_size)} ) (CRF {crf}): {input_file}\033[0m")
                    
                     total_original_videos_size += original_size
-                    compress_video(input_file, output_file, crf)
+                    compress_video(input_file, output_file, crf, worker)
                     final_size = os.path.getsize(output_file)
                     total_final_videos_size += final_size
 

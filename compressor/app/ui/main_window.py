@@ -97,13 +97,33 @@ class MainWindow(QWidget):
         self.totalUnsupportedFiles.setStyleSheet("font-size: 12px; font-weight: light; padding-bottom: 10px;")
         self.main_layout.addWidget(self.totalUnsupportedFiles)
 
-        # Compress button, initially disabled
-        self.compress_button = QPushButton("Compress")
-        self.compress_button.setEnabled(False)
-        self.compress_button.setStyleSheet(self.button_style())
-        self.compress_button.clicked.connect(self.onCompressClicked)
-        self.main_layout.addWidget(self.compress_button)
+        # Compress Section
+        self.compressSection = QHBoxLayout()
 
+        # Compress button, initially disabled
+        self.start_button = QPushButton("Start")
+        self.start_button.setEnabled(False)
+        self.start_button.setStyleSheet(self.button_style())
+        self.start_button.clicked.connect(self.onCompressClicked)
+        self.compressSection.addWidget(self.start_button)
+
+        # Pause 
+        self.pause_button = QPushButton("Pause")
+        self.pause_button.setEnabled(False)
+        self.pause_button.setStyleSheet("font-size: 12px; font-weight: light; background-color: 'gray'; padding: 10px; border-radius: 5px; color: 'white'")
+        self.pause_button.clicked.connect(self.onPauseClicked)
+        self.compressSection.addWidget(self.pause_button)
+
+        # Cancel 
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setEnabled(False)
+        self.cancel_button.setStyleSheet("font-size: 12px; font-weight: light; background-color: 'red'; padding: 10px; border-radius: 5px; color: 'white'")
+        self.cancel_button.clicked.connect(self.onCompressClicked)
+        self.compressSection.addWidget(self.cancel_button)
+
+        self.compressSection.setSpacing(10)
+        
+        self.main_layout.addLayout(self.compressSection)          
 
         # Add progress bar 
         self.progress_bar_widget = ProgressBarWidget(self)
@@ -119,6 +139,9 @@ class MainWindow(QWidget):
         self.setLayout(self.main_layout)
 
 
+    def onPauseClicked(self):
+        print("Stopping on pause clicked")
+        self.worker.stop()
 
     def onCompressClicked(self):
         def updateProgressBar(data):
@@ -152,6 +175,8 @@ class MainWindow(QWidget):
         # Start the process
         self.thread.started.connect(self.worker.run)
         self.thread.start()
+
+        self.pause_button.setEnabled(True)
         
     def add_folder(self):
         """Open file dialog to manually select a folder."""
@@ -166,7 +191,7 @@ class MainWindow(QWidget):
         if folder_path:
             self.output_folder_edit.setText(folder_path)  # Update output folder text area
             self.outputFolder = folder_path  # Update outputFolder variable
-            self.compress_button.setEnabled(True)  # Enable compress button once output folder is set
+            self.start_button.setEnabled(True)  # Enable compress button once output folder is set
 
     def update_input_folder(self, text):
         """Update inputFolder variable when input folder text area changes."""
