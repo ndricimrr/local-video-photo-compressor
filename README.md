@@ -2,9 +2,6 @@
 
 ## User Interface
 
-### Initial Screen
-<img width="612" alt="Screenshot 2024-10-06 at 20 19 17" src="https://github.com/user-attachments/assets/3a71b05d-14f6-463f-8485-afb155662227">
-
 ### In Progress
 <img width="617" alt="Screenshot 2024-10-06 at 20 19 26" src="https://github.com/user-attachments/assets/bb7e5e90-7c72-47cb-9e9c-5bd8f2cc5618">
 
