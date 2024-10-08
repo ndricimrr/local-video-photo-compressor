@@ -8,6 +8,8 @@ import math
 from PyQt6.QtCore import QThread
 from file_process_worker import FileProcessingWorker
 
+from ui.filter_widget import FilterWidget  # Import the FilterWidget
+
 class MainWindow(QWidget):
     
 
@@ -25,7 +27,8 @@ class MainWindow(QWidget):
 
         self.worker = None
         self.thread = None
-
+        self.selected_compression_speed = "fast"
+        self.selected_image_quality = 20
         # Main layout (vertical)
         self.main_layout = QVBoxLayout()
 
@@ -78,25 +81,43 @@ class MainWindow(QWidget):
         # Add output section layout to the main layout
         self.main_layout.addLayout(self.output_section_layout)
 
+        self.estimatedAndFiltersSection = QHBoxLayout();
+
+        self.estimatedSection = QVBoxLayout()
+
+        # Create a widget to hold the vertical layout
+        self.estimated_section_widget = QWidget()
+
         self.estimateLabel = QLabel("Estimated Time Required: ")
         self.estimateLabel.setStyleSheet("font-size: 16px; font-weight: bold; padding-bottom: 10px;")
-        self.main_layout.addWidget(self.estimateLabel)
+        self.estimatedSection.addWidget(self.estimateLabel)
 
         self.totalFiles = QLabel("Total Files: ")
         self.totalFiles.setStyleSheet("font-size: 12px; font-weight: light; padding-bottom: 10px;")
-        self.main_layout.addWidget(self.totalFiles)
+        self.estimatedSection.addWidget(self.totalFiles)
 
         self.totalImages = QLabel("Total Images: ")
         self.totalImages.setStyleSheet("font-size: 12px; font-weight: light; padding-bottom: 10px;")
-        self.main_layout.addWidget(self.totalImages)
+        self.estimatedSection.addWidget(self.totalImages)
 
         self.totalVideos = QLabel("Total Videos: ")
         self.totalVideos.setStyleSheet("font-size: 12px; font-weight: light; padding-bottom: 10px;")
-        self.main_layout.addWidget(self.totalVideos)
+        self.estimatedSection.addWidget(self.totalVideos)
 
         self.totalUnsupportedFiles = QLabel("Total Unsupported Files: ")
         self.totalUnsupportedFiles.setStyleSheet("font-size: 12px; font-weight: light; padding-bottom: 10px;")
-        self.main_layout.addWidget(self.totalUnsupportedFiles)
+        self.estimatedSection.addWidget(self.totalUnsupportedFiles)
+
+        # Set the vertical layout on the new QWidget
+        self.estimated_section_widget.setLayout(self.estimatedSection)
+
+        self.estimatedAndFiltersSection.addWidget(self.estimated_section_widget);
+
+           # Add Filters Widget
+        self.init_filter_ui()
+
+        self.main_layout.addLayout(self.estimatedAndFiltersSection)          
+
 
         # Compress Section
         self.compressSection = QHBoxLayout()
@@ -156,11 +177,9 @@ class MainWindow(QWidget):
 
     def stopProcessing(self):
         if self.worker:
-            print("Stopping Worker!!!!!!")
             self.worker.stop()  # Stop the worker
             if self.thread:
                 if self.thread.isRunning():  # Check if the thread is still active
-                    print("Stopping the thread!")
                     self.thread.quit()  # Stop the thread
                     self.thread.wait()  # Wait for the thread to finish
                 else:
@@ -169,9 +188,7 @@ class MainWindow(QWidget):
             else:
                 print("Thread reference is None or already stopped!")
         else:
-            print("NOTTTTT Stopping Worker!!!!!!")
-        
-        
+            print("No self.worker available skip stopping")
 
     def onPauseClicked(self):
         print("Stopping on pause clicked")
@@ -200,7 +217,7 @@ class MainWindow(QWidget):
             self.progress_bar_widget.update_progress(math.ceil(self.progress))
     
         #  Add worker and start thread
-        self.worker = FileProcessingWorker(self.inputFolder, self.outputFolder, self.loadPreviousProgress)
+        self.worker = FileProcessingWorker(self.inputFolder, self.outputFolder, self.loadPreviousProgress, self.selected_compression_speed, self.selected_image_quality)
         self.thread = QThread()
         self.worker.moveToThread(self.thread)
 
@@ -307,3 +324,32 @@ class MainWindow(QWidget):
                 border-color: #0078d7;
             }
         """
+    
+
+    def init_filter_ui(self):
+        # Filters Section (Integrate FilterWidget)
+        filter_widget = FilterWidget()
+
+        # Connect signals from FilterWidget to slots in MainWindow
+        filter_widget.compression_speed_changed.connect(self.on_compression_speed_changed)
+        # filter_widget.crf_changed.connect(self.on_crf_changed)
+        filter_widget.image_quality_changed.connect(self.on_image_quality_changed)
+
+        self.estimatedAndFiltersSection.addWidget(filter_widget);
+
+
+
+   # Slot to handle compression speed changes
+    def on_compression_speed_changed(self, value):
+        self.selected_compression_speed = value
+        print(f"Compression Speed changed to: {value}")
+
+    # Slot to handle CRF changes
+    # def on_crf_changed(self, value):
+    #     self.selected_crf = value
+    #     print(f"CRF changed to: {value}")
+
+    # Slot to handle quality changes
+    def on_image_quality_changed(self, value):
+        self.selected_image_quality = value
+        print(f"Image Quality changed to: {value}")
