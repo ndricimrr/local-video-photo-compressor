@@ -110,8 +110,14 @@ def filter_exif_data(exif_data, essential_tags=None):
         print(f"\033[31mFailed to filter EXIF data: Error: {e}\033[0m")
         return None  # Return None if filtering fails
 
-def save_compressed_image(img, output_file, exif_data=None, quality=20):
+def save_compressed_image(img, output_file, exif_data=None):
     """Saves the image with compression and optional EXIF data."""
+
+        
+    quality = 20
+    if image_quality:
+        quality = image_quality
+        print("Compressing with quality: ", quality)
     try:
         if exif_data is None: 
             img.save(output_file, optimize=True, quality=quality)
@@ -138,6 +144,13 @@ def compress_image(input_file, output_file):
 
 def compress_video(input_file, output_file, crf, worker):
     """Compresses a video and saves it to the output file."""
+
+    image_quality
+    speed = "fast"
+    if video_compression_speed:
+        speed = video_compression_speed
+        print("Compressing with speed: ", speed)
+
     cmd = [
         'ffmpeg',
         '-i', input_file,
@@ -145,7 +158,7 @@ def compress_video(input_file, output_file, crf, worker):
         '-map_metadata', '0',
         '-c:v', 'libx264',
         '-crf', str(crf),
-        '-preset', 'fast',
+        '-preset', speed,
         output_file
     ]
     # subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # Suppress FFmpeg output
@@ -171,12 +184,13 @@ def compress_video(input_file, output_file, crf, worker):
         process.wait()  # Ensure the process is cleaned up
     
 
-def process_files(folder, outputFolder, shouldLoadProgress, worker):
+def process_files(folder, outputFolder, shouldLoadProgress, worker, video_compression_speed_value, image_quality_value):
     """Recursively processes files in the given folder."""
     global processed_images_count, processed_videos_count, skipped_videos_count, unsupported_files_count
     global total_original_images_size, total_final_images_size
     global total_original_videos_size, total_final_videos_size
     global total_unsupported_files_size, total_skipped_videos_size
+    global image_quality, video_compression_speed
 
     # Load processed files if resuming
     
@@ -192,7 +206,11 @@ def process_files(folder, outputFolder, shouldLoadProgress, worker):
             os.remove(PROGRESS_FILE_NAME)
             print(f"{PROGRESS_FILE_NAME} has been removed. Fresh start...")
 
-
+    if video_compression_speed_value:
+        video_compression_speed = video_compression_speed_value
+    if image_quality_value:
+        image_quality = image_quality_value
+    
 
     if outputFolder:
         # Create the output folder inside the given outputFolder path
