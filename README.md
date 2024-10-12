@@ -3,10 +3,12 @@
 ## User Interface
 
 ### In Progress
-<img width="617" alt="Screenshot 2024-10-06 at 20 19 26" src="https://github.com/user-attachments/assets/bb7e5e90-7c72-47cb-9e9c-5bd8f2cc5618">
+<img width="615" alt="Screenshot 2024-10-12 at 17 29 11" src="https://github.com/user-attachments/assets/62096a4f-d9a2-43ee-9ac6-d067d607624d">
 
 ### Paused
-<img width="614" alt="Screenshot 2024-10-06 at 20 19 36" src="https://github.com/user-attachments/assets/1d827d59-2d0e-4b25-b355-f801cd542d3d">
+<img width="614" alt="Screenshot 2024-10-12 at 17 28 55" src="https://github.com/user-attachments/assets/5f7f93ba-901a-4d5a-badc-011abc1329cf">
+
+
 
 A simple app to convert videos locally to lower sized ones.
 
