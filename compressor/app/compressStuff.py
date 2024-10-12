@@ -48,8 +48,12 @@ def save_progress(processed_files):
         'total_unsupported_files_size': total_unsupported_files_size,  # Save unsupported files size
         'total_skipped_videos_size': total_skipped_videos_size  # Save skipped videos size
     }
-    with open(PROGRESS_FILE_NAME, 'w') as f:
-        json.dump(data, f)
+    try:
+        with open(PROGRESS_FILE_NAME, 'w') as f:
+            json.dump(data, f)
+    except Exception as e:
+        print(f"An error occurred while saving file progress to the file: {e}")
+
 
 def load_progress():
     """Loads the processed files and size data from the progress file."""
@@ -183,6 +187,16 @@ def compress_video(input_file, output_file, crf, worker):
         process.terminate()  # Ensure ffmpeg is stopped on error
         process.wait()  # Ensure the process is cleaned up
     
+def get_total_size_from_list(file_list):
+    """Returns the total size of all files in the file_list."""
+    total_size = 0
+    for file_path in file_list:
+        if os.path.isfile(file_path):  # Check if the file exists and is a file
+            total_size += os.path.getsize(file_path)
+        else:
+            print(f"File not found or not a file: {file_path}")
+    return total_size
+
 
 def process_files(folder, outputFolder, shouldLoadProgress, worker, video_compression_speed_value, image_quality_value):
     """Recursively processes files in the given folder."""
@@ -269,6 +283,7 @@ def process_files(folder, outputFolder, shouldLoadProgress, worker, video_compre
                 notify_data['total_original_images_size'] = total_original_images_size
                 notify_data['processed_videos_count'] = processed_videos_count
                 notify_data['total_original_videos_size'] = total_original_videos_size
+                notify_data['already_processed_files_size'] = get_total_size_from_list(processed_files)
 
                 worker.progress.emit(notify_data)
                 print(f"Processed {input_file}: {format_size(original_size)} -> {format_size(final_size)} , (Decrease: {calculate_percentage_decrease(original_size, final_size):.2f} %)")
@@ -316,6 +331,7 @@ def process_files(folder, outputFolder, shouldLoadProgress, worker, video_compre
                     notify_data['total_original_images_size'] = total_original_images_size
                     notify_data['processed_videos_count'] = processed_videos_count
                     notify_data['total_original_videos_size'] = total_original_videos_size
+                    notify_data['already_processed_files_size'] = get_total_size_from_list(processed_files)
 
                     worker.progress.emit(notify_data)
 

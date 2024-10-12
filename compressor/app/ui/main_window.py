@@ -7,8 +7,77 @@ from publisher import Publisher
 import math 
 from PyQt6.QtCore import QThread
 from file_process_worker import FileProcessingWorker
-
+import json
 from ui.filter_widget import FilterWidget  # Import the FilterWidget
+
+PROGRESS_FILE_NAME = "saved-progress.json"
+
+def readSavedInputFolder():
+    file_path =  PROGRESS_FILE_NAME
+    try:
+        # Open the JSON file and load the data
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+        
+        # Return the progress value if it exists
+        return data.get('inputFolder', "Output Folder not found in the JSON file.")
+    except FileNotFoundError:
+        print(f"The file {file_path} was not found while reading output folder")
+        return ''
+    except json.JSONDecodeError:
+        print("Error decoding the JSON file while reading output folder.")
+        return ''           
+    except Exception as e:
+        print(f"An error occurred while reading output folder: {e}")
+        return ''
+
+def readSavedOutputFolder():
+    file_path =  PROGRESS_FILE_NAME
+
+    try:
+        # Open the JSON file and load the data
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+        
+        # Return the progress value if it exists
+        return data.get('outputFolder', "Output Folder not found in the JSON file.")
+    except FileNotFoundError:
+        print(f"The file {file_path} was not found while reading output folder")
+        return ''
+    except json.JSONDecodeError:
+        print("Error decoding the JSON file while reading output folder.")
+        return ''           
+    except Exception as e:
+        print(f"An error occurred while reading output folder: {e}")
+        return ''
+
+# Function to save the progress value
+def saveProgressNumber(progress_value, inputFilePath, outputFilePath, file_path=None):
+    file_path = PROGRESS_FILE_NAME
+    try:
+        # Open the JSON file and load the data
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+        
+        # Update the progress field
+        data['progress'] = progress_value
+
+        # also save input/output path
+        data['inputFolder'] = inputFilePath
+        data['outputFolder'] = outputFilePath
+
+        # Save the updated data back to the JSON file
+        with open(file_path, 'w') as f:
+            json.dump(data, f, indent=4)  # `indent=4` makes the JSON pretty-printed
+        
+        print(f"Progress value {progress_value} saved successfully.")
+    except FileNotFoundError:
+        print(f"The file {file_path} was not found.")
+    except json.JSONDecodeError:
+        print("Error decoding the JSON file.")
+    except Exception as e:
+        print(f"An error occurred while saving progress:{progress_value} :  {e}")
+
 
 class MainWindow(QWidget):
     
@@ -21,14 +90,21 @@ class MainWindow(QWidget):
         self.setGeometry(300, 200, 600, 400)
 
         # Variables for input and output folders
-        self.inputFolder = ""
-        self.outputFolder = ""
-        self.loadPreviousProgress = False
+        self.inputFolder = readSavedInputFolder()
+        self.outputFolder = readSavedOutputFolder()
+        
 
         self.worker = None
         self.thread = None
         self.selected_compression_speed = "fast"
         self.selected_image_quality = 20
+        # Read progress if any
+        self.progress = self.readProgressNumber()
+
+        self.loadPreviousProgress = False
+        if self.progress > 0:
+            self.loadPreviousProgress = True
+
         # Main layout (vertical)
         self.main_layout = QVBoxLayout()
 
@@ -58,7 +134,7 @@ class MainWindow(QWidget):
         self.input_folder_edit = QLineEdit(self)
         self.input_folder_edit.setPlaceholderText("Input folder path...")
         self.input_folder_edit.setStyleSheet(self.input_field_style())
-        self.input_folder_edit.textChanged.connect(self.update_input_folder)  # Reflect changes to inputFolder variable
+        self.input_folder_edit.textChanged.connect(self.update_input_folder)  
         self.main_layout.addWidget(self.input_folder_edit)
 
         ############################################################################### 
@@ -74,6 +150,8 @@ class MainWindow(QWidget):
         self.output_folder_edit = QLineEdit(self)
         self.output_folder_edit.setPlaceholderText("Output folder path...")
         self.output_folder_edit.setStyleSheet(self.output_folder_input_field_style())
+        if self.outputFolder:
+            self.output_folder_edit.setText(self.outputFolder)    
         self.output_folder_edit.textChanged.connect(self.update_output_folder)  # Reflect changes to outputFolder variable
         self.output_section_layout.addWidget(self.output_folder_edit)
         self.output_section_layout.setContentsMargins(0,70,0,10)
@@ -147,14 +225,30 @@ class MainWindow(QWidget):
         
         self.main_layout.addLayout(self.compressSection)          
 
+
+        # Loading Progress Label
+        self.progressLoadedLabel = QLabel("Using saved progress")
+        self.progressLoadedLabel.setStyleSheet("font-size: 12px; font-weight: bold; background-color: 'white'; padding: 2px; border-radius: 2px; color: 'green'")
+        
+        if self.progress > 0:
+            self.main_layout.addWidget(self.progressLoadedLabel)
+
         # Add progress bar 
         self.progress_bar_widget = ProgressBarWidget(self)
         self.progress_bar_widget.setContentsMargins(0,10,0,10)
+        self.progress_bar_widget.update_progress(self.progress)
         self.main_layout.addWidget(self.progress_bar_widget) 
 
         # Set main layout
         self.main_layout.setSpacing(0)
         self.setLayout(self.main_layout)
+
+        if self.inputFolder:
+            self.input_folder_edit.setText(self.inputFolder)
+            self.update_input_folder(self.inputFolder)
+            self.cancel_button.setEnabled(True)  
+            self.setStartButtonContinue()
+            self.start_button.setEnabled(True)  
 
 
     def onCancelClicked(self):
@@ -163,10 +257,14 @@ class MainWindow(QWidget):
         self.cancel_button.setStyleSheet("font-size: 12px; font-weight: light; background-color: 'red'; padding: 10px; border-radius: 5px; color: 'white'")
         self.start_button.setText("Start")
         self.progress = 0
+        self.progressLoadedLabel.setText("Removed Saved Progress. Click Start to start Fresh")
         
         try:
-            self.worker.progress.disconnect()
-            print("Signal disconnected")
+            if self.worker:
+                self.worker.progress.disconnect()
+                print("Signal disconnected")
+            else: 
+                print("Nothing to disconnect while canceling task")
         except TypeError:
             # This will catch the error if there are no connections to disconnect
             print("Signal was not connected, nothing to disconnect")
@@ -190,12 +288,44 @@ class MainWindow(QWidget):
         else:
             print("No self.worker available skip stopping")
 
-    def onPauseClicked(self):
-        print("Stopping on pause clicked")
+    def setStartButtonContinue(self):
         self.start_button.setText("Continue")
         self.start_button.setStyleSheet("font-size: 12px; font-weight: light; background-color: 'green'; padding: 10px; border-radius: 5px; color: 'white'")
+        
+    def onPauseClicked(self):
+        print("Stopping on pause clicked")
+        self.setStartButtonContinue()
         self.stopProcessing()  
         self.loadPreviousProgress = True
+        self.progressLoadedLabel.setText("Paused. Click 'Continue' or close the app and pick up where you left off")
+
+
+    
+    # Function to read the progress value
+    def readProgressNumber(self, file_path=None):
+        file_path =  PROGRESS_FILE_NAME
+        print("Reading progress number...")
+        try:
+            # Open the JSON file and load the data
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+            
+            # Return the progress value if it exists
+            readNumber = int(math.ceil(data.get('progress', "Progress not found in the JSON file.")))
+            
+            self.previousProgressNumberFound = True
+            print("self.previousProgressNumberFound. {self.previousProgressNumberFound}  +++++++++++++++++",self.previousProgressNumberFound)
+            return readNumber
+        except FileNotFoundError:
+            print(f"The file {file_path} was not found.")
+            return 0
+        except json.JSONDecodeError:
+            print("Error decoding the JSON file.")
+            return 0            
+        except Exception as e:
+            print(f"An error occurred reading progress: {e}")
+            return 0
+        
 
     def onStartClicked(self):
         def updateProgressBar(data):
@@ -208,14 +338,26 @@ class MainWindow(QWidget):
             total_count = self.analysisResult['total_files_count']
             total_size = self.analysisResult['total_size']
 
+            already_processed_size = data['already_processed_files_size']
+
             analysis_total_size = self.analysisResult['total_size']
+            # if self.previousProgressNumberFound is True:
+            #     print("----------------- Found previous progress")
+            #     progress_value = self.progress
+            # else:
+            #     print("----------------->>>> Found NOOOOO previous progress")
 
-            self.progress = (( current_images_size + current_videos_size ) / analysis_total_size) * 100
+            progress_value = ((( current_images_size + current_videos_size + already_processed_size ) / analysis_total_size) * 100 )
+            
+            
+            print("Update progress" + math.ceil(progress_value).__str__())
 
-            print("Update progress" + math.ceil(self.progress).__str__())
+            self.progress_bar_widget.update_progress(math.ceil(progress_value))
+            saveProgressNumber(progress_value, self.inputFolder, self.outputFolder)
+            self.progress = progress_value
 
-            self.progress_bar_widget.update_progress(math.ceil(self.progress))
-    
+        self.progressLoadedLabel.setText("Compression in Progress...")
+
         #  Add worker and start thread
         self.worker = FileProcessingWorker(self.inputFolder, self.outputFolder, self.loadPreviousProgress, self.selected_compression_speed, self.selected_image_quality)
         self.thread = QThread()
@@ -229,6 +371,7 @@ class MainWindow(QWidget):
         # Start the process
         self.thread.started.connect(self.worker.run)
      
+        
         self.thread.start()
 
         self.pause_button.setEnabled(True)
@@ -249,10 +392,10 @@ class MainWindow(QWidget):
             self.outputFolder = folder_path  # Update outputFolder variable
             self.start_button.setEnabled(True)  # Enable compress button once output folder is set
 
-    def update_input_folder(self, text):
+    def update_input_folder(self, folder):
         """Update inputFolder variable when input folder text area changes."""
-        self.inputFolder = text
-        self.analysisResult = analyze_compression_time(text)
+        self.inputFolder = folder
+        self.analysisResult = analyze_compression_time(folder)
 
         self.estimateLabel.setText("Estimated Time Required: " + self.analysisResult['total_estimated_time_str'])
         self.totalFiles.setText("Total Files: " + self.analysisResult['total_files_count'] + ' files (' + self.analysisResult['formatted_total_size'] +' )')
