@@ -1,7 +1,10 @@
+# Windows Based Script to compress videos using ffmpeg and pause if CPU temperature exceeds a threshold.
+# TODO : Needs to be re-tested and updated.
+
 import os
 import subprocess
 import time
-from temp import get_cpu_temp
+from windows.temp import get_cpu_temp
 
 def get_video_bitrate(file_path):
     try:
