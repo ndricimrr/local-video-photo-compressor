@@ -86,7 +86,7 @@ class MainWindow(QWidget):
         super().__init__()
         self.analysisResult = None
 
-        self.setWindowTitle("Folder Compression Tool")
+        self.setWindowTitle("Local Video & Photo Compressor")
         self.setGeometry(300, 200, 600, 400)
 
         # Variables for input and output folders

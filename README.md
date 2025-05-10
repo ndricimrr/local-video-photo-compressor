@@ -1,16 +1,20 @@
-# Local Video Compressor
+# Local Video & Photo Compressor
 
-An overly simple desktop app to compress videos & imags locally. Just drag your folder full of videos and images and hit "Start".
+An overly simple **offline** desktop app to compress videos & images locally. Just drag your folder full of videos and images and nested folders and hit "Start". A new folder with same structure will be created with your videos and photos greatly compressed.
 
 ## User Interface
 
+### Start Phase
+
+<img width="615" alt="start" src="screenshots/initial.png">
+
 ### In Progress
 
-<img width="615" alt="Screenshot 2024-10-12 at 17 29 11" src="https://github.com/user-attachments/assets/62096a4f-d9a2-43ee-9ac6-d067d607624d">
+<img width="615" alt="Screenshot 2024-10-12 at 17 29 11" src="screenshots/in_progress.png">
 
 ### Paused
 
-<img width="614" alt="Screenshot 2024-10-12 at 17 28 55" src="https://github.com/user-attachments/assets/5f7f93ba-901a-4d5a-badc-011abc1329cf">
+<img width="614" alt="Screenshot 2024-10-12 at 17 28 55" src="screenshots/paused.png">
 
 ## Overview
 
@@ -30,15 +34,20 @@ The app currently supports the following file formats:
 
 ### Videos:
 
+Popular video file types:
+
 - `.mkv`
 - `.mp4`
 - `.avi`
 - `.mov`
+  and more from the range that ffmpeg [supports](https://en.wikipedia.org/wiki/FFmpeg#Muxers).
 
 ### Images:
 
 - `.jpeg`
+- `.jpg`
 - `.png`
+- `.gif`
 
 All other file types not supported, are simply copied over to the new folder as is and not lost.
 
@@ -50,7 +59,7 @@ Modern smartphones produce high-quality videos that take up significant storage 
 
 _Practically, if you can compress 100GB of video/images to 3GB you could delay having to buy a Cloud data subscription by many years saving quite a lot on unecessary monthly fees._
 
-There's no reason you should be able to fit ~5-10 years of images/videos in one device before having to buy cloud subscriptions. This can be achieved if your files are compressed.
+There's no reason why you can't fit ~5-10 years of images/videos in one device before having to buy cloud subscriptions. This can be achieved if your files are compressed.
 
 ### The Solution:
 
@@ -59,12 +68,35 @@ The **Local Video Compressor** provides a simple, cost-effective alternative. By
 - Save storage space.
 - Avoid/Reduce recurring cloud storage fees.
 - Maintain control over your personal data.
+- Use a free open source tool that works **100% offline** and requires no weird online SaaS with junk fees.
 
 ---
 
 ## How to Use
 
+# Requirements
+
+- Currently the app was built and tested for **MacOS** only
+- Works with **Python 3.13.1** and above.
+- Install pacakges through `requirements.txt` :
+
+  `python3 -m pip install -r requirements.txt`
+
+  or install separatey:
+  `piexif` - for
+  `Pillow` - for image compressions
+  `PyQt6` - for the UI
+
+- This app requires [ffmpeg](https://github.com/FFmpeg/FFmpeg) to be installed on your system for video compressions. Follow these steps to install it on **macOS**:
+
+```
+  brew install ffmpeg
+```
+
+# Start the App
+
 1. Clone or download the repository.
+
 2. Run the app using the following command:
    ```bash
    python3 macos/app/main.py
@@ -79,31 +111,16 @@ You pay to have your data saved and usually with a subscription. The irony is th
 
 Proposed solution is to offer an User Interface, that is simple to use: Simply drag and drop a folder on the Desktop App, and the folder should contain all the videos you want to convert and subfolders with videos as you wish.
 
-It then converts the videos it found to lower file size in place. You only drag & drop the folder and the app should recursively convert everything it finds as supported file types for videos.
+It then converts the videos and images it found to lower file size in a new folder with the same exact file structure. You only drag & drop the folder and the app should recursively convert everything it finds as supported file types for videos and images.
 
-At the end instead of 12 GB of cat videos, you end up with 100 MB maybe, sparing quite a lot of space for you.
+At the end, instead of 12 GB of cat videos, you end up with 100 MB maybe, sparing quite a lot of space for you.
 
 You saved your memories longer and also saved some money, thats the goal.
 
-## Main Goal
+## End Goal
 
-Should be super simple and basic to use for people with no technical expertise. That means 1-click install should be a must. Drag & Drop + 1 Click should be all that the users should do ideally. Advanced solutions already exist.
+Should be super simple and basic to use for people with no technical expertise. That means **1-click install** should be a must. Drag & Drop + 1 Click should be all that the users should do ideally. Advanced solutions already exist.
 
-# How to Run
+# Contributions
 
-```
-python3 macos/app/main.py
-```
-
-# Requirements
-
-- Currently the app was built and tested for **MacOS** only
-- Works with **Python 3.13.1** and above.
-- Install pacakges through `requirements.txt` :
-
-  `python3 -m pip install -r requirements.txt`
-
-  or install separatey:
-  `piexif`,
-  `Pillow`,
-  `PyQt6`
+Contributions are more than welcome. Plenty of work is yet to be done. Simply pick an **Issue** and open a **PR**.
