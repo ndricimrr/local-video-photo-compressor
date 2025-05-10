@@ -18,7 +18,7 @@ An overly simple **offline** desktop app to compress videos & images locally. Ju
 
 ## Overview
 
-The **Local Video Compressor** is an open source lightweight tool designed to help users reduce the size of their video and image files without relying on pricey cloud storage solutions. It provides a simple drag-and-drop interface for compressing videos and images, making it accessible to users with **no technical expertise**.
+The **Local Video & Photo Compressor** is an open source lightweight tool designed to help users reduce the size of their video and image files without relying on pricey cloud storage solutions. It provides a simple drag-and-drop interface for compressing videos and images, making it accessible to users with **no technical expertise**.
 
 ## Features
 
@@ -63,12 +63,12 @@ There's no reason why you can't fit ~5-10 years of images/videos in one device b
 
 ### The Solution:
 
-The **Local Video Compressor** provides a simple, cost-effective alternative. By compressing videos locally, you can:
+The **Local Video & Photo Compressor** provides a simple, free open-source solution. By compressing videos locally, you can:
 
 - Save storage space.
 - Avoid/Reduce recurring cloud storage fees.
 - Maintain control over your personal data.
-- Use a free open source tool that works **100% offline** and requires no weird online SaaS with junk fees.
+- Use a free open source tool that works **100% offline** and requires no weird online Video Compression SaaS with hidden junk fees & and non-privacy friendly T&C.
 
 ---
 
