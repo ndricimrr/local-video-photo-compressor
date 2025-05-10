@@ -113,6 +113,13 @@ class MainWindow(QWidget):
         self.description.setStyleSheet("font-size: 16px; font-weight: bold; padding-bottom: 10px;")
         self.main_layout.addWidget(self.description)
 
+
+        # Description at the top
+        self.detail_description = QLabel("Greatly compress Videos and Photos in your Computer with little quality change")
+        self.detail_description.setStyleSheet("font-size: 14px; font-weight: light; padding-bottom: 10px;")
+        self.main_layout.addWidget(self.detail_description)
+
+
         # Input section layout (horizontal): Drag & Drop + Add Folder button
         self.input_section_layout = QHBoxLayout()
 

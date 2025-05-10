@@ -155,16 +155,30 @@ def compress_video(input_file, output_file, crf, worker):
         speed = video_compression_speed
         print("Compressing with speed: ", speed)
 
+    # cmd = [
+    #     'ffmpeg',
+    #     '-i', input_file,
+    #     '-movflags', 'use_metadata_tags',
+    #     '-map_metadata', '0',
+    #     '-c:v', 'libx264',
+    #     '-crf', str(crf),
+    #     '-preset', speed,
+    #     output_file
+    # ]
+
+
     cmd = [
         'ffmpeg',
+        '-hwaccel', 'videotoolbox',
         '-i', input_file,
         '-movflags', 'use_metadata_tags',
         '-map_metadata', '0',
-        '-c:v', 'libx264',
+        '-c:v', 'h264_videotoolbox',
         '-crf', str(crf),
         '-preset', speed,
         output_file
     ]
+    
     # subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # Suppress FFmpeg output
 
     # Run ffmpeg using Popen so we can terminate it if needed
